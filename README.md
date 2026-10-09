@@ -261,8 +261,8 @@ Next.js 15 (App Router) and React 19 on the front/API, Prisma ORM with PostgreSQ
 FixFlow is **dual-licensed**.
 
 - **Open source — GNU AGPL-3.0** (see [LICENSE](LICENSE)). You may use, study, modify and self-host FixFlow freely. Because the AGPL includes a *network* clause, if you run a modified version as a service accessed over a network, you must make your modified source available to its users under the same license.
-- **Commercial license** — for organizations that want to use FixFlow **without** the AGPL's copyleft/network obligations (for example to offer it as a closed-source hosted service or embed it in a proprietary product), a commercial license is available. Contact `<commercial-contact-email>`.
+- **Commercial license** — for organizations that want to use FixFlow **without** the AGPL's copyleft/network obligations (for example to offer it as a closed-source hosted service or embed it in a proprietary product), a commercial license is available. Contact **contact@kcastrec.com**.
 
-Copyright © 2026 `<copyright-holder>`. "FixFlow" and the project are dual-licensed (AGPL-3.0 OR commercial).
+Copyright © 2026 Killian CASTREC. "FixFlow" and the project are dual-licensed (AGPL-3.0 OR commercial).
 
 > **Contributions:** external contributions may require signing a Contributor License Agreement (CLA) so the project can continue to offer the commercial license. Open an issue before large contributions.
