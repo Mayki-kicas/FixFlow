@@ -266,6 +266,28 @@ export async function createNotificationsForUsers(input: {
   void processPendingNotificationEmailJobs(15);
 }
 
+// Notifie tous les administrateurs actifs qu'un nouveau compte attend la
+// validation de son accès (compte SSO créé « en attente »). In-app + email.
+export async function notifyAdminsOfPendingUser(pending: {
+  id: string;
+  email: string;
+  displayName: string;
+}) {
+  const admins = await prisma.user.findMany({
+    where: { role: 'ADMIN', isActive: true },
+    select: { id: true },
+  });
+  if (admins.length === 0) return;
+  await createNotificationsForUsers({
+    userIds: admins.map((a) => a.id),
+    type: 'SYSTEM',
+    title: 'Nouvel accès en attente',
+    message: `${pending.displayName} (${pending.email}) attend la validation de son accès.`,
+    link: '/backoffice/users',
+    dedupeKey: `pending-access:${pending.id}`,
+  });
+}
+
 export async function dispatchDueDateReminderNotificationsInternal() {
   const now = new Date();
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());

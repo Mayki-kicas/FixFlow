@@ -11,6 +11,7 @@ import {
 } from './login-throttle';
 import { verifyPassword } from './password';
 import { getAuthConfig } from './auth-config';
+import { notifyAdminsOfPendingUser } from './notifications-core';
 import {
   ACCESS_PENDING_MESSAGE,
   bootstrapPromotion,
@@ -162,6 +163,13 @@ export const authOptions: NextAuthOptions = {
                   isActive: access.isActive,
                 },
               });
+              if (!access.isActive) {
+                try {
+                  await notifyAdminsOfPendingUser(user);
+                } catch (e) {
+                  console.error('[auth] notify admins (pending LDAP) failed', e);
+                }
+              }
             }
 
             await clearLoginAttempts(loginKey);
@@ -229,6 +237,13 @@ export const authOptions: NextAuthOptions = {
             isActive: access.isActive,
           },
         });
+        if (!access.isActive) {
+          try {
+            await notifyAdminsOfPendingUser(dbUser);
+          } catch (e) {
+            console.error('[auth] notify admins (pending Entra) failed', e);
+          }
+        }
       }
 
       // false → NextAuth redirige vers signin avec ?error=AccessDenied (→ /auth/pending).

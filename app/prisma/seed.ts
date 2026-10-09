@@ -231,39 +231,6 @@ async function main() {
     },
   });
 
-  const manager = await prisma.user.create({
-    data: {
-      ldapId: 'uid=manager,ou=infra,dc=example,dc=local',
-      email: 'manager@example.com',
-      displayName: 'manager',
-      role: 'MANAGER',
-      authProvider: 'LDAP',
-      isActive: true,
-    },
-  });
-
-  const maintainerUser = await prisma.user.create({
-    data: {
-      email: 'maintainer@example.com',
-      passwordHash: await hashPassword('maintainer123'),
-      displayName: 'maintainer',
-      role: 'MAINTAINER',
-      authProvider: 'LOCAL',
-      isActive: true,
-    },
-  });
-
-  const basic = await prisma.user.create({
-    data: {
-      ldapId: 'uid=basic,ou=infra,dc=example,dc=local',
-      email: 'basic@example.com',
-      displayName: 'basic Basic',
-      role: 'BASIC',
-      authProvider: 'LDAP',
-      isActive: true,
-    },
-  });
-
   const group = await prisma.group.create({
     data: {
       name: 'Groupe Global Operations',
@@ -272,7 +239,7 @@ async function main() {
   });
 
   await Promise.all(
-    [admin.id, manager.id, maintainerUser.id, basic.id].map((userId) =>
+    [admin.id].map((userId) =>
       prisma.groupMember.create({
         data: {
           groupId: group.id,
@@ -290,7 +257,7 @@ async function main() {
   });
 
   await Promise.all(
-    [admin.id, manager.id, maintainerUser.id, basic.id].map((userId) =>
+    [admin.id].map((userId) =>
       prisma.groupMember.create({
         data: {
           groupId: siteGroup.id,
@@ -317,9 +284,8 @@ async function main() {
 
   const maintainer = await prisma.maintainer.create({
     data: {
-      name: 'Nicolas Dubois',
-      email: maintainerUser.email,
-      userId: maintainerUser.id,
+      name: 'Prestataire Démo',
+      email: 'prestataire@example.com',
       contact: '+33 6 00 00 00 01',
     },
   });
@@ -339,14 +305,14 @@ async function main() {
       equipmentId: sampleEquipment.id,
       teamId: itTeam.id,
       locationId: globalLocation.id,
-      requesterId: maintainerUser.id,
+      requesterId: admin.id,
       openedAt: new Date('2026-02-01T07:30:00.000Z'),
       dueDate: new Date('2026-02-10T17:00:00.000Z'),
       quoteNumber: 'DEV-2026-0045',
       maintainerId: maintainer.id,
       subscriptions: {
         create: {
-          userId: maintainerUser.id,
+          userId: admin.id,
         },
       },
     },
@@ -356,17 +322,13 @@ async function main() {
     data: {
       content:
         "J'ai alerte l'equipe et declenche la procedure d'urgence. Mise a jour des pieces jointes des reception.",
-      authorId: maintainerUser.id,
+      authorId: admin.id,
       ticketId: ticket.id,
     },
   });
 
-  console.log('Users de test crees :');
-  console.log(' - admin@example.com (ADMIN)');
-  console.log(' - manager@example.com (MANAGER)');
-  console.log(' - maintainer@example.com (MAINTAINER local, hors LDAP)');
-  console.log('   mot de passe seed: maintainer123');
-  console.log(' - basic@example.com (BASIC)');
+  console.log('Compte créé :');
+  console.log(' - admin@example.com (ADMIN, local) — mot de passe: BOOTSTRAP_ADMIN_PASSWORD');
   console.log(`Groupe cree : ${siteGroup.name} (membres par defaut + abonnes a ${allCategories.length} categorie(s))`);
   console.log('Seed termine : localisations, equipes, equipements globaux, ticket exemple.');
 }
