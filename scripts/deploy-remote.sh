@@ -25,7 +25,7 @@ Usage:
   sh scripts/deploy-remote.sh [options]
 
 Required environment:
-  DEPLOY_HOST                Remote host (example: 203.0.113.12)
+  DEPLOY_HOST                Remote host (example: your-server.example.com)
 
 Optional environment:
   DEPLOY_USER=ubuntu
@@ -41,8 +41,8 @@ Options:
   -h, --help                 Show help
 
 Examples:
-  DEPLOY_HOST=203.0.113.12 sh scripts/deploy-remote.sh --first-deploy --upload-env .env
-  DEPLOY_HOST=203.0.113.12 sh scripts/deploy-remote.sh
+  DEPLOY_HOST=your-server.example.com sh scripts/deploy-remote.sh --first-deploy --upload-env .env
+  DEPLOY_HOST=your-server.example.com sh scripts/deploy-remote.sh
 EOF
 }
 
