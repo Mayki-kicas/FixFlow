@@ -1,6 +1,6 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
+import { signIn, getProviders } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
@@ -13,13 +13,24 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [entraActive, setEntraActive] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const isDevBypassEnabled = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
 
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
+    // Un refus OAuth (compte non encore autorisé) revient ici en ?error=AccessDenied.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'AccessDenied') {
+      router.replace('/auth/pending');
+      return;
+    }
+    // Affiche le bouton Microsoft uniquement si le provider Entra est actif.
+    getProviders()
+      .then((providers) => setEntraActive(Boolean(providers && 'azure-ad' in providers)))
+      .catch(() => setEntraActive(false));
+  }, [router]);
 
   const submitOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -192,6 +203,25 @@ export default function SignIn() {
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
+
+          {entraActive && (
+            <div className="mt-4 border-t border-border-default pt-3">
+              <button
+                type="button"
+                disabled={!isHydrated || loading}
+                onClick={() => signIn('azure-ad', { callbackUrl: '/' })}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 21 21" aria-hidden="true">
+                  <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                  <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                </svg>
+                Se connecter avec Microsoft
+              </button>
+            </div>
+          )}
 
           {isDevBypassEnabled && (
             <div className="mt-4 border-t border-border-default pt-3">

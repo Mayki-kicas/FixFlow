@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import AzureADProvider from 'next-auth/providers/azure-ad';
 import { prisma } from './prisma';
 import { ldapService } from './ldap';
 import { UserRole } from '@prisma/client';
@@ -19,6 +20,14 @@ import {
 } from './auth-core';
 
 const DEV_BYPASS_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'MAINTAINER', 'BASIC'];
+
+// Claims pertinents renvoyés par Microsoft Entra (id_token).
+type EntraProfile = {
+  oid?: string;
+  email?: string;
+  preferred_username?: string;
+  name?: string;
+};
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -178,10 +187,71 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    // Flux OAuth Microsoft (Entra) : on provisionne le compte en base (pending /
+    // bootstrap) et on refuse la connexion tant que l'accès n'est pas accordé.
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== 'azure-ad') return true; // Credentials géré dans authorize()
+
+      const claims = (profile ?? {}) as EntraProfile;
+      const email = (claims.email || claims.preferred_username || user.email || '')
+        .trim()
+        .toLowerCase();
+      const oid = claims.oid || account.providerAccountId;
+      if (!email || !oid) return false;
+
+      const bootstrapEmails = parseBootstrapAdminEmails(process.env.BOOTSTRAP_ADMIN_EMAILS);
+      const existing = await prisma.user.findFirst({
+        where: { OR: [{ entraId: oid }, { email }] },
+      });
+
+      let dbUser;
+      if (existing) {
+        const promo = bootstrapPromotion(existing, bootstrapEmails);
+        dbUser = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            entraId: oid,
+            authProvider: 'ENTRA',
+            email,
+            displayName: claims.name || existing.displayName,
+            ...(promo ?? {}),
+          },
+        });
+      } else {
+        const access = resolveNewSsoUserAccess(email, bootstrapEmails);
+        dbUser = await prisma.user.create({
+          data: {
+            entraId: oid,
+            authProvider: 'ENTRA',
+            email,
+            displayName: claims.name || email,
+            role: access.role,
+            isActive: access.isActive,
+          },
+        });
+      }
+
+      // false → NextAuth redirige vers signin avec ?error=AccessDenied (→ /auth/pending).
+      return isLoginPermitted(dbUser);
+    },
+    async jwt({ token, user, account, profile }) {
       if (user) {
-        token.role = user.role;
-        token.id = user.id;
+        if (account?.provider === 'azure-ad') {
+          // L'utilisateur OAuth n'a pas notre id/rôle : on résout depuis la base.
+          const claims = (profile ?? {}) as EntraProfile;
+          const oid = claims.oid || account.providerAccountId;
+          const dbUser = await prisma.user.findFirst({
+            where: { OR: [{ entraId: oid }, { email: (user.email || '').toLowerCase() }] },
+            select: { id: true, role: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } else {
+          token.role = user.role;
+          token.id = user.id;
+        }
       }
       return token;
     },
@@ -204,3 +274,30 @@ export const authOptions: NextAuthOptions = {
   useSecureCookies: process.env.NODE_ENV === 'production',
   secret: process.env.NEXTAUTH_SECRET,
 };
+
+// Options d'auth construites par requête : la méthode SSO active (Entra) est
+// ajoutée dynamiquement selon AuthConfig + secret .env. Le compte local
+// (Credentials) reste toujours disponible. getServerSession peut, lui, utiliser
+// authOptions (les providers ne servent pas au décodage de session).
+export async function buildAuthOptions(): Promise<NextAuthOptions> {
+  const cfg = await getAuthConfig();
+  const providers = [...authOptions.providers];
+
+  if (
+    cfg.activeProvider === 'ENTRA' &&
+    cfg.entraClientId &&
+    cfg.entraTenantId &&
+    process.env.ENTRA_CLIENT_SECRET
+  ) {
+    providers.push(
+      AzureADProvider({
+        clientId: cfg.entraClientId,
+        clientSecret: process.env.ENTRA_CLIENT_SECRET,
+        tenantId: cfg.entraTenantId,
+        authorization: { params: { scope: 'openid profile email' } },
+      }),
+    );
+  }
+
+  return { ...authOptions, providers };
+}
