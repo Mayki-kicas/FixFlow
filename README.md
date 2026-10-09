@@ -138,8 +138,8 @@ sh scripts/deploy-remote.sh --help
 Premiere installation (installe/active le service systemd) :
 
 ```bash
-DEPLOY_HOST=203.0.113.12 \
-DEPLOY_USER=ubuntu \
+DEPLOY_HOST=your-server.example.com \
+DEPLOY_USER=deploy \
 DEPLOY_PATH=/opt/fixflow \
 APP_SERVICE=fixflow \
 APP_PORT=3000 \
@@ -149,8 +149,8 @@ sh scripts/deploy-remote.sh --first-deploy --upload-env .env
 Mise a jour applicative :
 
 ```bash
-DEPLOY_HOST=203.0.113.12 \
-DEPLOY_USER=ubuntu \
+DEPLOY_HOST=your-server.example.com \
+DEPLOY_USER=deploy \
 DEPLOY_PATH=/opt/fixflow \
 APP_SERVICE=fixflow \
 APP_PORT=3000 \
