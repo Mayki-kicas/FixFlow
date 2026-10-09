@@ -70,6 +70,7 @@ function buildGroups(role: string): Group[] {
         items: [
           { name: 'Réglages', href: '/backoffice/settings' },
           { name: 'Authentification', href: '/backoffice/auth' },
+          { name: 'Email', href: '/backoffice/email' },
         ],
       });
     }

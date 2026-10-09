@@ -70,6 +70,7 @@ export default async function BackofficePage() {
       items: [
         { title: 'Réglages SLA', description: 'Délai de prise en charge (triage) et variables globales', href: '/backoffice/settings' },
         { title: 'Authentification', description: 'Méthode SSO (LDAP / Microsoft) et paramètres', href: '/backoffice/auth' },
+        { title: 'Email', description: 'Serveur SMTP et notifications par email', href: '/backoffice/email' },
       ],
     });
   }

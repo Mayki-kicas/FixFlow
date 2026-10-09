@@ -753,6 +753,22 @@ model AuthConfig {
   updatedAt DateTime @updatedAt
 }
 
+// Configuration SMTP d'envoi d'emails, éditable au backoffice (singleton).
+// Le mot de passe SMTP reste dans .env (SMTP_PASSWORD).
+model EmailConfig {
+  id        String  @id @default("singleton")
+  enabled   Boolean @default(false)
+  host      String?
+  port      Int?
+  // Sécurité du transport : NONE | STARTTLS | SSL
+  security  String  @default("STARTTLS")
+  username  String?
+  fromName  String?
+  fromEmail String?
+
+  updatedAt DateTime @updatedAt
+}
+
 // Devis d'un prestataire pour un ticket. Cycle : demandé (au dispatch) -> reçu
 // (ingéré depuis l'app mainteneur externe) -> accepté/refusé (décision interne).
 model Quote {

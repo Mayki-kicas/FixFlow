@@ -2,6 +2,7 @@ import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { effectiveSmtpSettings } from '@/lib/email-config';
 
 type SendEmailInput = {
   to: string;
@@ -18,26 +19,37 @@ export type EmailAttachment = {
   content?: Buffer;
 };
 
-type SmtpConfig = {
-  enabled: boolean;
-  host: string;
-  port: number;
-  secure: boolean;
-  from: string;
-  timeoutMs: number;
-  ehloName: string;
-};
+// Élève une connexion en clair vers TLS (STARTTLS) : enveloppe la socket existante.
+function upgradeToTls(socket: net.Socket, host: string) {
+  return new Promise<tls.TLSSocket>((resolve, reject) => {
+    const tlsSocket = tls.connect({ socket, servername: host });
+    const cleanup = () => {
+      tlsSocket.off('secureConnect', onSecure);
+      tlsSocket.off('error', onError);
+    };
+    const onSecure = () => {
+      cleanup();
+      resolve(tlsSocket);
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    tlsSocket.once('secureConnect', onSecure);
+    tlsSocket.once('error', onError);
+  });
+}
 
-function getSmtpConfig(): SmtpConfig {
-  return {
-    enabled: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
-    host: process.env.SMTP_HOST || 'mailpit',
-    port: Number(process.env.SMTP_PORT || 1025),
-    secure: process.env.SMTP_SECURE === 'true',
-    from: process.env.SMTP_FROM || "FixFlow <noreply@fixflow.local>",
-    timeoutMs: Number(process.env.SMTP_TIMEOUT_MS || 10000),
-    ehloName: process.env.SMTP_EHLO_NAME || 'localhost',
-  };
+// AUTH LOGIN (identifiant/mot de passe en base64) — supporté par la plupart des MTA.
+async function smtpAuthLogin(
+  socket: net.Socket | tls.TLSSocket,
+  timeoutMs: number,
+  username: string,
+  password: string,
+) {
+  await sendCommand(socket, timeoutMs, 'AUTH LOGIN', [334]);
+  await sendCommand(socket, timeoutMs, Buffer.from(username, 'utf8').toString('base64'), [334]);
+  await sendCommand(socket, timeoutMs, Buffer.from(password, 'utf8').toString('base64'), [235]);
 }
 
 // Empêche l'injection d'en-têtes SMTP/MIME (CRLF) via une valeur interpolée
@@ -255,17 +267,20 @@ async function createMessage(input: SendEmailInput, from: string) {
 }
 
 export async function sendEmail(input: SendEmailInput) {
-  const config = getSmtpConfig();
+  const config = await effectiveSmtpSettings();
   if (!config.enabled) {
     return { skipped: true as const };
   }
 
-  const socket = config.secure
-    ? tls.connect({ host: config.host, port: config.port })
-    : net.createConnection({ host: config.host, port: config.port });
+  // SSL = TLS implicite dès la connexion ; NONE/STARTTLS = connexion en clair.
+  let socket: net.Socket | tls.TLSSocket =
+    config.security === 'SSL'
+      ? tls.connect({ host: config.host, port: config.port, servername: config.host })
+      : net.createConnection({ host: config.host, port: config.port });
 
   await new Promise<void>((resolve, reject) => {
-    socket.once('connect', () => resolve());
+    const connectEvent = config.security === 'SSL' ? 'secureConnect' : 'connect';
+    socket.once(connectEvent, () => resolve());
     socket.once('error', (error) => reject(error));
   });
 
@@ -276,6 +291,18 @@ export async function sendEmail(input: SendEmailInput) {
     }
 
     await sendCommand(socket, config.timeoutMs, `EHLO ${config.ehloName}`, [250]);
+
+    if (config.security === 'STARTTLS') {
+      await sendCommand(socket, config.timeoutMs, 'STARTTLS', [220]);
+      socket = await upgradeToTls(socket as net.Socket, config.host);
+      // Re-EHLO obligatoire après l'upgrade TLS.
+      await sendCommand(socket, config.timeoutMs, `EHLO ${config.ehloName}`, [250]);
+    }
+
+    if (config.username && config.password) {
+      await smtpAuthLogin(socket, config.timeoutMs, config.username, config.password);
+    }
+
     await sendCommand(socket, config.timeoutMs, `MAIL FROM:<${config.from.match(/<(.+)>/)?.[1] || config.from}>`, [250]);
     await sendCommand(socket, config.timeoutMs, `RCPT TO:<${sanitizeHeaderValue(input.to)}>`, [250, 251]);
     await sendCommand(socket, config.timeoutMs, 'DATA', [354]);
