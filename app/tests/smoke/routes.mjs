@@ -90,6 +90,7 @@ const STATIC_ROUTES = [
   '/plans',
   '/backoffice',
   '/backoffice/analytique',
+  '/backoffice/auth',
   '/backoffice/categories',
   '/backoffice/codes-defaut',
   '/backoffice/equipments',

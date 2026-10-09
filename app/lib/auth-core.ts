@@ -43,6 +43,19 @@ export function isLoginPermitted(user: { isActive: boolean }): boolean {
   return user.isActive === true;
 }
 
+// Garde-fou anti-lockout : vrai si appliquer (nextRole, nextActive) à `target`
+// retire le DERNIER administrateur actif du système.
+export function removesLastActiveAdmin(
+  target: { role: UserRole; isActive: boolean },
+  nextRole: UserRole,
+  nextActive: boolean,
+  activeAdminCount: number,
+): boolean {
+  const wasActiveAdmin = target.role === 'ADMIN' && target.isActive;
+  const willBeActiveAdmin = nextRole === 'ADMIN' && nextActive;
+  return wasActiveAdmin && !willBeActiveAdmin && activeAdminCount <= 1;
+}
+
 // Message surfacé sur la page de connexion quand le compte existe mais n'a pas
 // encore reçu d'accès (détecté côté UI pour afficher l'explication / lien).
 export const ACCESS_PENDING_MESSAGE =

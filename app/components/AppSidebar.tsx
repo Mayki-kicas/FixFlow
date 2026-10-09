@@ -61,11 +61,17 @@ function buildGroups(role: string): Group[] {
         { name: 'Prestataires', href: '/backoffice/maintainers' },
         { name: 'Techniciens', href: '/backoffice/techniciens' },
         { name: 'Groupes', href: '/backoffice/groups' },
-        ...(isAdmin ? [{ name: 'Import LDAP', href: '/backoffice/users' }] : []),
+        ...(isAdmin ? [{ name: 'Utilisateurs & rôles', href: '/backoffice/users' }] : []),
       ],
     });
     if (isAdmin) {
-      groups.push({ title: 'Configuration', items: [{ name: 'Réglages', href: '/backoffice/settings' }] });
+      groups.push({
+        title: 'Configuration',
+        items: [
+          { name: 'Réglages', href: '/backoffice/settings' },
+          { name: 'Authentification', href: '/backoffice/auth' },
+        ],
+      });
     }
   }
 

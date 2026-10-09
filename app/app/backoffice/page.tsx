@@ -58,7 +58,7 @@ export default async function BackofficePage() {
         { title: 'Prestataires', description: 'Fournisseurs externes et contrats', href: '/backoffice/maintainers' },
         { title: 'Techniciens', description: 'Compétences, habilitations et feuilles de temps', href: '/backoffice/techniciens' },
         { title: 'Groupes', description: 'Groupes utilisateurs et abonnements', href: '/backoffice/groups' },
-        { title: 'Import LDAP', description: 'Import manuel des utilisateurs LDAP actifs', href: '/backoffice/users' },
+        { title: 'Utilisateurs & rôles', description: 'Attribution des rôles, accès et comptes locaux', href: '/backoffice/users' },
       ],
     },
   ];
@@ -69,6 +69,7 @@ export default async function BackofficePage() {
       description: 'Réglages globaux du process maintenance',
       items: [
         { title: 'Réglages SLA', description: 'Délai de prise en charge (triage) et variables globales', href: '/backoffice/settings' },
+        { title: 'Authentification', description: 'Méthode SSO (LDAP / Microsoft) et paramètres', href: '/backoffice/auth' },
       ],
     });
   }
