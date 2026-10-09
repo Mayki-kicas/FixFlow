@@ -87,6 +87,7 @@ docker compose exec app npm run lint
 - `CLAUDE.md` : Guide pour Claude Code
 
 ## Liens importants
+- `docs/AUTHENTICATION.md` : **guide auth** — SSO LDAP/Microsoft, rôles, amorçage, dépannage.  
 - `docs/DATA_MODEL.md` : modèle Prisma expliqué + prototype JSON + instructions seed/env.  
 - `docs/DB_SCHEMA.md` : référence du schéma de base de données.  
 - `docs/PWA_TECHNICIEN_SECURITY.md` : modèle de sécurité de la PWA mainteneur externe.  

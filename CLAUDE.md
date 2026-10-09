@@ -78,6 +78,7 @@ The Prisma schema ([app/prisma/schema.prisma](app/prisma/schema.prisma)) impleme
 
 ## Important Documentation
 
+- [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md): Auth & roles guide — LDAP/Microsoft SSO, bootstrap, user management, troubleshooting
 - [docs/DATA_MODEL.md](docs/DATA_MODEL.md): Prisma model explanation with JSON prototype and setup instructions
 - [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md): Database schema reference
 - [docs/LOCATIONS.md](docs/LOCATIONS.md): **Site (Location) model and seed format — demo sites only**
