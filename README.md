@@ -1,4 +1,4 @@
-# FixFlow — Open-Source CMMS & Maintenance Ticketing Platform
+# FixFlow — CMMS / GMAO & Maintenance Ticketing Platform
 
 > Self-hosted **CMMS (GMAO)** and **maintenance ticketing** software to declare incidents, auto-route work orders, run preventive maintenance, and track equipment, spare parts, costs and reliability — built with Next.js, Prisma and PostgreSQL.
 
@@ -7,9 +7,9 @@
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2d3748)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
-![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue)
+![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue)
 
-**FixFlow is a free, open-source CMMS (Computerized Maintenance Management System — *GMAO* in French) and maintenance ticketing platform.** Teams declare incidents, work orders are auto-assigned to the owning team, and the tool covers the full maintenance lifecycle: corrective and preventive maintenance, an equipment registry, spare-parts inventory, time and cost tracking, reliability KPIs (MTBF/MTTR), and configurable authentication (LDAP or Microsoft Entra ID) and email — all self-hosted.
+**FixFlow is a self-hosted, source-available CMMS (Computerized Maintenance Management System — *GMAO* in French) and maintenance ticketing platform.** It is free for noncommercial use; commercial/business use requires a license (see [License](#license)). Teams declare incidents, work orders are auto-assigned to the owning team, and the tool covers the full maintenance lifecycle: corrective and preventive maintenance, an equipment registry, spare-parts inventory, time and cost tracking, reliability KPIs (MTBF/MTTR), and configurable authentication (LDAP or Microsoft Entra ID) and email — all self-hosted.
 
 - **Category:** CMMS / GMAO + maintenance ticketing / work-order management
 - **Deployment:** self-hosted (Docker in dev, Node.js standalone in production)
@@ -44,7 +44,7 @@ FixFlow is maintenance management software that combines a **ticketing / help-de
 
 It is designed for organizations that outgrew spreadsheets and email threads but don't want a heavy, expensive SaaS: **FixFlow is self-hosted, data stays in your PostgreSQL database, and everything is configurable from the admin backoffice.**
 
-> **GMAO vs CMMS:** *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is both — a bilingual, open-source GMAO/CMMS.
+> **GMAO vs CMMS:** *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is both — a bilingual, source-available GMAO/CMMS.
 
 ---
 
@@ -225,13 +225,13 @@ Already applied by the project: security headers (CSP, HSTS in prod, no-sniff, f
 ## FAQ
 
 ### What is FixFlow?
-FixFlow is an open-source **CMMS (GMAO)** and maintenance ticketing platform. It manages incident tickets, work orders, equipment, preventive maintenance, spare parts, costs and reliability KPIs, and is self-hosted on Next.js, Prisma and PostgreSQL.
+FixFlow is a source-available **CMMS (GMAO)** and maintenance ticketing platform. It manages incident tickets, work orders, equipment, preventive maintenance, spare parts, costs and reliability KPIs, and is self-hosted on Next.js, Prisma and PostgreSQL.
 
 ### What's the difference between a CMMS and a GMAO?
 None — *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is simply the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is a bilingual GMAO/CMMS.
 
-### Is FixFlow free and open-source?
-Yes. FixFlow is open-source under the **AGPL-3.0** license and self-hosted — you run it on your own infrastructure and your data stays in your PostgreSQL database. A **commercial license** is also available for closed-source or proprietary use (see [License](#license)).
+### Is FixFlow free? What license is it under?
+FixFlow is **source-available** under the **PolyForm Noncommercial** license: free to use, modify and self-host for **noncommercial purposes** (personal, nonprofit, educational, research). **Commercial or business use requires a commercial license** — contact contact@kcastrec.com. Your data always stays in your own PostgreSQL database.
 
 ### Can FixFlow be self-hosted?
 Yes. Docker Compose is provided for development, and a production deployment script builds a Node.js standalone runtime and manages a systemd service — no Docker required in production.
@@ -258,11 +258,11 @@ Next.js 15 (App Router) and React 19 on the front/API, Prisma ORM with PostgreSQ
 
 ## License
 
-FixFlow is **dual-licensed**.
+FixFlow is **source-available**, not open-source.
 
-- **Open source — GNU AGPL-3.0** (see [LICENSE](LICENSE)). You may use, study, modify and self-host FixFlow freely. Because the AGPL includes a *network* clause, if you run a modified version as a service accessed over a network, you must make your modified source available to its users under the same license.
-- **Commercial license** — for organizations that want to use FixFlow **without** the AGPL's copyleft/network obligations (for example to offer it as a closed-source hosted service or embed it in a proprietary product), a commercial license is available. Contact **contact@kcastrec.com**.
+- **PolyForm Noncommercial 1.0.0** (see [LICENSE](LICENSE)) — you may use, modify and self-host FixFlow for **noncommercial purposes** (personal, nonprofit, educational, research) free of charge.
+- **Commercial / business use requires a commercial license.** Any use by or for a for-profit organization, or in a commercial context, is **not** covered by the noncommercial license and needs an explicit agreement. Contact **contact@kcastrec.com**.
 
-Copyright © 2026 Killian CASTREC. "FixFlow" and the project are dual-licensed (AGPL-3.0 OR commercial).
+Copyright © 2026 Killian CASTREC. All rights reserved except as expressly granted by the PolyForm Noncommercial License.
 
-> **Contributions:** external contributions may require signing a Contributor License Agreement (CLA) so the project can continue to offer the commercial license. Open an issue before large contributions.
+> **Contributions:** external contributions may require signing a Contributor License Agreement (CLA). Open an issue before large contributions.
