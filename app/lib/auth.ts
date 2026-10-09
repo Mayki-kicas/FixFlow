@@ -265,6 +265,9 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/auth/signin',
+    // Les erreurs d'auth (dont AccessDenied d'un compte en attente) repassent par
+    // la page de connexion, qui route AccessDenied vers /auth/pending.
+    error: '/auth/signin',
   },
   session: {
     strategy: 'jwt',
