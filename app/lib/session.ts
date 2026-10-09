@@ -22,6 +22,12 @@ export async function getCurrentUser() {
     },
   });
 
+  // Un compte désactivé (accès révoqué / en attente) ne donne aucun accès,
+  // même si un JWT valide subsiste côté client.
+  if (!user || !user.isActive) {
+    return null;
+  }
+
   return user;
 }
 

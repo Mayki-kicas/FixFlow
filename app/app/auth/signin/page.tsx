@@ -41,7 +41,12 @@ export default function SignIn() {
       });
 
       if (result?.error) {
-        setError('Identifiants incorrects');
+        // Compte authentifié mais sans accès accordé → message dédié.
+        if (result.error.includes('attente de validation')) {
+          router.replace('/auth/pending');
+          return;
+        }
+        setError(result.error.includes('tentatives') ? result.error : 'Identifiants incorrects');
       } else {
         router.replace('/');
         router.refresh();

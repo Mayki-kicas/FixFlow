@@ -17,6 +17,13 @@ enum UserRole {
   BASIC
 }
 
+// Méthode d'authentification rattachée à un compte / provider SSO actif.
+enum AuthProvider {
+  LOCAL
+  LDAP
+  ENTRA
+}
+
 enum Priority {
   P1
   P2
@@ -141,11 +148,16 @@ enum ExternalFeedbackIngestionStatus {
 
 model User {
   id              String       @id @default(cuid())
-  ldapId          String       @unique
+  ldapId          String?      @unique
+  entraId         String?      @unique
+  authProvider    AuthProvider @default(LOCAL)
   email           String       @unique
   passwordHash    String?
   displayName     String
   role            UserRole     @default(BASIC)
+  // Accès accordé : un compte SSO nouvellement créé est inactif tant qu'un
+  // admin ne lui a pas attribué un rôle (cf. accès « en attente »).
+  isActive        Boolean      @default(false)
   notifyTicketCreated Boolean  @default(true)
   notifyStatusChanged Boolean  @default(true)
   notifyNewMessage   Boolean   @default(true)
@@ -719,6 +731,24 @@ model AppConfig {
   firstResponseHours Int @default(1)
   // Taux horaire de main d'œuvre interne (centimes). null = non valorisée.
   laborRateCents Int?
+
+  updatedAt DateTime @updatedAt
+}
+
+// Configuration d'authentification éditable au backoffice (singleton).
+// Les SECRETS (bind password LDAP, client secret Entra) restent dans .env —
+// seuls les réglages non-secrets sont stockés ici.
+model AuthConfig {
+  id String @id @default("singleton")
+  // Méthode SSO active : LDAP ou ENTRA (le compte admin local reste toujours dispo).
+  activeProvider AuthProvider @default(LDAP)
+  // --- LDAP (non-secret) ---
+  ldapUrl        String?
+  ldapSearchBase String?
+  ldapBindDn     String?
+  // --- Microsoft Entra (non-secret) ---
+  entraTenantId  String?
+  entraClientId  String?
 
   updatedAt DateTime @updatedAt
 }

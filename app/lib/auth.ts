@@ -9,6 +9,14 @@ import {
   registerFailedLoginAttempt,
 } from './login-throttle';
 import { verifyPassword } from './password';
+import { getAuthConfig } from './auth-config';
+import {
+  ACCESS_PENDING_MESSAGE,
+  bootstrapPromotion,
+  isLoginPermitted,
+  parseBootstrapAdminEmails,
+  resolveNewSsoUserAccess,
+} from './auth-core';
 
 const DEV_BYPASS_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'MAINTAINER', 'BASIC'];
 
@@ -64,118 +72,108 @@ export const authOptions: NextAuthOptions = {
           return fail();
         }
 
+        const bootstrapEmails = parseBootstrapAdminEmails(process.env.BOOTSTRAP_ADMIN_EMAILS);
         const username = credentials.username.trim().toLowerCase();
-        const localMaintainerUser = await prisma.user.findFirst({
-          where: {
-            email: username,
-            role: 'MAINTAINER',
-            passwordHash: { not: null },
-          },
+
+        // 1) Compte LOCAL (email + mot de passe) — tout rôle, toujours disponible
+        //    (admin d'amorçage, mainteneurs locaux, break-glass).
+        const localUser = await prisma.user.findFirst({
+          where: { email: username, passwordHash: { not: null } },
           select: {
             id: true,
             email: true,
             displayName: true,
             role: true,
+            isActive: true,
             passwordHash: true,
           },
         });
 
-        if (localMaintainerUser?.passwordHash) {
-          const isValid = await verifyPassword(credentials.password, localMaintainerUser.passwordHash);
+        if (localUser?.passwordHash) {
+          const isValid = await verifyPassword(credentials.password, localUser.passwordHash);
           if (!isValid) return fail();
+
+          // Promotion d'amorçage éventuelle (email ∈ BOOTSTRAP_ADMIN_EMAILS).
+          const promo = bootstrapPromotion(localUser, bootstrapEmails);
+          let { role, isActive } = localUser;
+          if (promo) {
+            role = promo.role;
+            isActive = promo.isActive;
+            await prisma.user.update({ where: { id: localUser.id }, data: promo });
+          }
+
           await clearLoginAttempts(loginKey);
-          return {
-            id: localMaintainerUser.id,
-            email: localMaintainerUser.email,
-            name: localMaintainerUser.displayName,
-            role: localMaintainerUser.role,
-          };
+          if (!isLoginPermitted({ isActive })) {
+            throw new Error(ACCESS_PENDING_MESSAGE);
+          }
+          return { id: localUser.id, email: localUser.email, name: localUser.displayName, role };
         }
 
-        try {
-          // Authentifier via LDAP
-          const ldapUser = await ldapService.authenticate(
-            credentials.username,
-            credentials.password
-          );
+        // 2) SSO : méthode active choisie au backoffice (Entra géré au Lot B).
+        const authConfig = await getAuthConfig();
 
-          if (!ldapUser) {
-            return fail();
-          }
-
-          // Déterminer le rôle depuis les groupes LDAP.
-          // Aucun groupe de rôle (Admin/Manager/Basic) → pas d'accès à l'outil.
-          const role = ldapService.determineRole(ldapUser.memberOf);
-          if (!role) {
-            console.warn('[auth] LDAP user without a role group, access denied', {
-              dn: ldapUser.dn,
-            });
-            return fail();
-          }
-          const normalizedEmail = ldapUser.email.trim().toLowerCase();
-
-          // Créer ou mettre à jour l'utilisateur dans la base
-          let user;
+        if (authConfig.activeProvider === 'LDAP') {
           try {
-            user = await prisma.user.upsert({
-              where: { ldapId: ldapUser.dn },
-              create: {
-                ldapId: ldapUser.dn,
-                email: normalizedEmail,
-                displayName: ldapUser.displayName,
-                role: role,
-              },
-              update: {
-                email: normalizedEmail,
-                displayName: ldapUser.displayName,
-                role: role,
-              },
-            });
-          } catch (error) {
-            // Collision email existant -> rattacher l'entrée existante au DN LDAP
-            if (
-              typeof error === 'object' &&
-              error !== null &&
-              'code' in error &&
-              (error as { code?: string }).code === 'P2002'
-            ) {
-              const existingByEmail = await prisma.user.findUnique({
-                where: { email: normalizedEmail },
-                select: { id: true, role: true },
-              });
+            const ldapUser = await ldapService.authenticate(
+              credentials.username,
+              credentials.password
+            );
+            if (!ldapUser) return fail();
 
-              if (!existingByEmail) {
-                throw error;
-              }
+            const normalizedEmail = ldapUser.email.trim().toLowerCase();
+            const existing =
+              (await prisma.user.findUnique({ where: { ldapId: ldapUser.dn } })) ||
+              (await prisma.user.findUnique({ where: { email: normalizedEmail } }));
 
+            let user;
+            if (existing) {
+              // Le rôle n'est JAMAIS écrasé par les groupes : géré en base/UI.
+              // Seule une promotion d'amorçage peut l'élever.
+              const promo = bootstrapPromotion(existing, bootstrapEmails);
               user = await prisma.user.update({
-                where: { id: existingByEmail.id },
+                where: { id: existing.id },
                 data: {
                   ldapId: ldapUser.dn,
+                  authProvider: 'LDAP',
+                  email: normalizedEmail,
                   displayName: ldapUser.displayName,
-                  role,
+                  ...(promo ?? {}),
                 },
               });
             } else {
+              // Nouveau compte SSO → accès « en attente » (sauf admin d'amorçage).
+              const access = resolveNewSsoUserAccess(normalizedEmail, bootstrapEmails);
+              user = await prisma.user.create({
+                data: {
+                  ldapId: ldapUser.dn,
+                  authProvider: 'LDAP',
+                  email: normalizedEmail,
+                  displayName: ldapUser.displayName,
+                  role: access.role,
+                  isActive: access.isActive,
+                },
+              });
+            }
+
+            await clearLoginAttempts(loginKey);
+            if (!isLoginPermitted(user)) {
+              throw new Error(ACCESS_PENDING_MESSAGE);
+            }
+            return { id: user.id, email: user.email, name: user.displayName, role: user.role };
+          } catch (error) {
+            if (error instanceof Error && error.message === ACCESS_PENDING_MESSAGE) {
               throw error;
             }
+            console.error('[auth] authorize LDAP flow failed', {
+              username: credentials.username,
+              error,
+            });
+            return fail();
           }
-
-          await clearLoginAttempts(loginKey);
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.displayName,
-            role: user.role,
-          };
-        } catch (error) {
-          console.error('[auth] authorize LDAP flow failed', {
-            username: credentials.username,
-            error,
-          });
-          return fail();
         }
+
+        // Aucune méthode SSO applicable (ex: ENTRA actif, géré au Lot B) → échec.
+        return fail();
       },
     }),
   ],
