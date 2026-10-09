@@ -7,6 +7,7 @@
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2d3748)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
+![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue)
 
 **FixFlow is a free, open-source CMMS (Computerized Maintenance Management System — *GMAO* in French) and maintenance ticketing platform.** Teams declare incidents, work orders are auto-assigned to the owning team, and the tool covers the full maintenance lifecycle: corrective and preventive maintenance, an equipment registry, spare-parts inventory, time and cost tracking, reliability KPIs (MTBF/MTTR), and configurable authentication (LDAP or Microsoft Entra ID) and email — all self-hosted.
 
@@ -230,7 +231,7 @@ FixFlow is an open-source **CMMS (GMAO)** and maintenance ticketing platform. It
 None — *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is simply the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is a bilingual GMAO/CMMS.
 
 ### Is FixFlow free and open-source?
-Yes. FixFlow is open-source and self-hosted — you run it on your own infrastructure and your data stays in your PostgreSQL database.
+Yes. FixFlow is open-source under the **AGPL-3.0** license and self-hosted — you run it on your own infrastructure and your data stays in your PostgreSQL database. A **commercial license** is also available for closed-source or proprietary use (see [License](#license)).
 
 ### Can FixFlow be self-hosted?
 Yes. Docker Compose is provided for development, and a production deployment script builds a Node.js standalone runtime and manages a systemd service — no Docker required in production.
@@ -257,4 +258,11 @@ Next.js 15 (App Router) and React 19 on the front/API, Prisma ORM with PostgreSQ
 
 ## License
 
-FixFlow is intended to be self-hosted and used freely. Add a `LICENSE` file (for example the **MIT License**) to formalize its open-source terms.
+FixFlow is **dual-licensed**.
+
+- **Open source — GNU AGPL-3.0** (see [LICENSE](LICENSE)). You may use, study, modify and self-host FixFlow freely. Because the AGPL includes a *network* clause, if you run a modified version as a service accessed over a network, you must make your modified source available to its users under the same license.
+- **Commercial license** — for organizations that want to use FixFlow **without** the AGPL's copyleft/network obligations (for example to offer it as a closed-source hosted service or embed it in a proprietary product), a commercial license is available. Contact `<commercial-contact-email>`.
+
+Copyright © 2026 `<copyright-holder>`. "FixFlow" and the project are dual-licensed (AGPL-3.0 OR commercial).
+
+> **Contributions:** external contributions may require signing a Contributor License Agreement (CLA) so the project can continue to offer the commercial license. Open an issue before large contributions.
