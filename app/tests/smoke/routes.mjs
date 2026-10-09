@@ -78,6 +78,7 @@ async function login() {
 // --- routes statiques (ADMIN voit tout) -------------------------------------
 const STATIC_ROUTES = [
   '/auth/signin',
+  '/auth/pending',
   '/',
   '/tickets',
   '/tickets/new',

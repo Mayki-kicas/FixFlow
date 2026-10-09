@@ -75,6 +75,6 @@ export const config = {
   matcher: [
     // Exclut les routes à authentification propre par token (cron internes + intégration
     // externe) : elles n'ont pas de session NextAuth et seraient sinon redirigées (307).
-    '/((?!api/auth|api/notifications|api/integration|auth/signin|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth|api/notifications|api/integration|auth/signin|auth/pending|_next/static|_next/image|favicon.ico).*)',
   ],
 };
