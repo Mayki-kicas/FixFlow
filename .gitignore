@@ -1,0 +1,60 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Env files
+.env
+.env.local
+.env.*.local
+app/.env
+app/.env.local
+app/.env.*.local
+
+# Node / build (root)
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node / build (app)
+app/node_modules/
+app/.next/
+app/out/
+app/build/
+app/coverage/
+app/dist/
+app/.vercel/
+app/*.tsbuildinfo
+app/next-env.d.ts
+
+# Node / build (maintainer-pwa)
+maintainer-pwa/node_modules/
+maintainer-pwa/.next/
+maintainer-pwa/out/
+maintainer-pwa/build/
+maintainer-pwa/*.tsbuildinfo
+maintainer-pwa/next-env.d.ts
+
+# Python (dwg-converter)
+**/__pycache__/
+*.pyc
+dwg-converter/.venv/
+dwg-converter/venv/
+
+# Generated / runtime files
+app/public/uploads/
+app/tmp/
+tmp/
+
+# Local backups (db dumps)
+backups/db/*.dump
+backups/db/*.sha256
+
+# Pièces jointes stockées sur disque (dev)
+app/uploads/
+
+# Docs internes (non publiés)
+docs/internal/

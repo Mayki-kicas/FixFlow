@@ -1,0 +1,20 @@
+[Unit]
+Description=__APP_SERVICE__ Next.js service
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__DEPLOY_PATH__/current
+Environment=NODE_ENV=production
+Environment=HOSTNAME=0.0.0.0
+Environment=PORT=__APP_PORT__
+EnvironmentFile=__DEPLOY_PATH__/shared/.env
+ExecStart=/usr/bin/env node server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

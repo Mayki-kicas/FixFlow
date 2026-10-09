@@ -1,0 +1,43 @@
+# CI FixFlow — vérifie chaque commit / merge request.
+# L'app Next.js est dans app/ ; tout tourne donc dans ce sous-dossier.
+
+stages:
+  - verify
+
+verify:
+  stage: verify
+  image: node:20-alpine
+  variables:
+    # Valeurs factices : la CI ne se connecte à aucune base (tests unitaires purs,
+    # pages dynamiques non pré-rendues). Prisma generate n'a besoin que du schéma.
+    DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+    NEXTAUTH_SECRET: "ci-dummy-secret-not-used-at-build"
+  cache:
+    key:
+      files:
+        - app/package-lock.json
+    paths:
+      - app/node_modules/
+  before_script:
+    - apk add --no-cache openssl libc6-compat
+    - cd app
+    - npm ci --include=dev
+    - npx prisma generate
+  script:
+    - echo "▶ Typecheck" && npx tsc --noEmit
+    - echo "▶ Lint" && npm run lint
+    - echo "▶ Tests" && npm run test:ci
+    - echo "▶ Build" && npm run build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+# Si `next build` venait à nécessiter une base (pré-rendu inattendu), ajouter :
+#   services:
+#     - postgres:15
+#   variables:
+#     POSTGRES_USER: ci
+#     POSTGRES_PASSWORD: ci
+#     POSTGRES_DB: ci
+#     DATABASE_URL: "postgresql://ci:ci@postgres:5432/ci"
+# puis `npx prisma migrate deploy` dans before_script.

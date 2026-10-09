@@ -1,0 +1,13 @@
+[Unit]
+Description=__APP_SERVICE__ — traitement de la file d'emails de notification
+After=network.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__DEPLOY_PATH__/current
+EnvironmentFile=__DEPLOY_PATH__/shared/.env
+# Appelle l'endpoint interne du serveur qui tourne déjà (auth: INTERNAL_CRON_TOKEN).
+ExecStart=/usr/bin/env bash -c 'curl -fsS --max-time 60 -X POST -H "Authorization: Bearer $INTERNAL_CRON_TOKEN" http://127.0.0.1:__APP_PORT__/api/notifications/email-queue/process'
+StandardOutput=journal
+StandardError=journal

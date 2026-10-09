@@ -1,0 +1,20 @@
+{
+  "name": "fixflow",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "start": "npm --prefix app run start",
+    "lint": "npm --prefix app run lint",
+    "prisma:generate": "npm --prefix app run prisma:generate",
+    "prisma:migrate": "npm --prefix app run prisma:migrate",
+    "prisma:seed": "npm --prefix app run prisma:seed",
+    "notifications:process-queue": "npm --prefix app run notifications:process-queue",
+    "notifications:dispatch-due": "npm --prefix app run notifications:dispatch-due",
+    "db:backup": "sh ./scripts/db-backup.sh",
+    "db:backup:list": "sh ./scripts/db-backup-list.sh",
+    "db:restore": "sh ./scripts/db-restore.sh",
+    "deploy:remote": "sh ./scripts/deploy-remote.sh"
+  }
+}

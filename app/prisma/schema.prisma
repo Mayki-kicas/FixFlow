@@ -1,0 +1,1010 @@
+// Prisma schema modeling the maintenance platform requirements.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  MAINTAINER
+  BASIC
+}
+
+enum Priority {
+  P1
+  P2
+  P3
+}
+
+// Nature d'un ticket au sens du process maintenance :
+// - CORRECTIVE : panne/incident à réparer (SLA en heures selon le type d'intervention).
+// - IMPROVEMENT : demande améliorative validée (passe par étude + devis + priorité en jours).
+enum TicketNature {
+  CORRECTIVE
+  IMPROVEMENT
+  PREVENTIVE
+}
+
+// Criticité d'un équipement (impact d'une panne) — oriente priorité & préventif.
+enum Criticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Cycle de vie d'un équipement.
+enum EquipmentLifecycleStatus {
+  IN_SERVICE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+// Type de document rattaché à un équipement.
+enum EquipmentDocumentType {
+  MANUAL
+  SCHEMA
+  CERTIFICATE
+  OTHER
+}
+
+// Nature d'une ligne de coût d'un OT (hors main d'œuvre, suivie via WorkLog).
+enum CostLineType {
+  PART
+  EXTERNAL
+  OTHER
+}
+
+// Déclencheur d'un plan de maintenance préventive.
+enum MaintenancePlanTrigger {
+  CALENDAR
+  METER
+}
+
+// Motif d'un mouvement de stock de pièce détachée.
+enum StockMovementReason {
+  ENTRY        // réception / entrée
+  CONSUMPTION  // consommation sur un OT
+  ADJUSTMENT   // ajustement d'inventaire
+  RETURN       // retour en stock
+}
+
+// Catégorie d'un code de diagnostic d'OT (panne / cause / remède).
+enum FailureCodeType {
+  FAILURE
+  CAUSE
+  REMEDY
+}
+
+enum QuoteStatus {
+  REQUESTED // devis demandé au prestataire (via dispatch externe)
+  RECEIVED  // devis reçu du prestataire
+  ACCEPTED  // devis accepté (décision interne)
+  REJECTED  // devis refusé (décision interne)
+}
+
+enum DemandeStatus {
+  PENDING   // en attente de validation par un manager
+  CONVERTED // transformée en ticket
+  REJECTED  // rejetée (avec motif)
+}
+
+enum AttachmentType {
+  PHOTO
+  PDF
+  OTHER
+}
+
+enum ReportType {
+  INCIDENT
+  INTERVENTION
+}
+
+enum NotificationType {
+  TICKET_CREATED
+  STATUS_CHANGED
+  NEW_MESSAGE
+  DUE_DATE_REMINDER
+  SYSTEM
+}
+
+enum EmailJobStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+enum ExternalDispatchStatus {
+  PENDING
+  SENT
+  ACK
+  ERROR
+  CLOSED
+}
+
+enum ExternalFeedbackIngestionStatus {
+  RECEIVED
+  PROCESSED
+  REJECTED
+}
+
+// ----------------
+// Core entities
+
+model User {
+  id              String       @id @default(cuid())
+  ldapId          String       @unique
+  email           String       @unique
+  passwordHash    String?
+  displayName     String
+  role            UserRole     @default(BASIC)
+  notifyTicketCreated Boolean  @default(true)
+  notifyStatusChanged Boolean  @default(true)
+  notifyNewMessage   Boolean   @default(true)
+  notifyDueDate      Boolean   @default(false)
+  notifyEmailEnabled Boolean   @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  memberships     GroupMember[]
+  tickets         Ticket[]     @relation("TicketRequester")
+  chatMessages    ChatMessage[]
+  attachments     Attachment[]
+  subscriptions      TicketSubscription[]
+  incidentReports    IncidentReport[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  notificationEmailJobs NotificationEmailJob[]
+  externalDispatchesCreated ExternalDispatch[]
+  categorySubscriptions UserCategorySubscription[]
+  priorityChanges    PriorityChange[]
+  quoteDecisions     Quote[]      @relation("QuoteDecider")
+  demandesRequested  Demande[]    @relation("DemandeRequester")
+  demandesDecided    Demande[]    @relation("DemandeDecider")
+  // Sites dont l'utilisateur (manager) est responsable (validation des demandes du site).
+  managedLocations   Location[]   @relation("LocationManagers")
+  equipmentDocuments EquipmentDocument[]
+  maintenancePlansCreated MaintenancePlan[] @relation("MaintenancePlanCreator")
+  ticketTasksDone    TicketTask[] @relation("TicketTaskDoneBy")
+  workLogs           WorkLog[]    @relation("WorkLogUser")
+  costLinesCreated   CostLine[]   @relation("CostLineCreator")
+  assignedTickets    Ticket[]     @relation("TicketAssignee")
+  skills             UserSkill[]
+  meterReadings      MeterReading[] @relation("MeterReadingBy")
+  stockMovements     StockMovement[] @relation("StockMovementBy")
+  maintainerProfile Maintainer?
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  equipments  Equipment[]
+  tickets     Ticket[]
+  statuses    TicketStatus[]
+  groups      GroupTeam[]
+  maintenancePlans MaintenancePlan[] @relation("TeamMaintenancePlans")
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  address     String?
+  city        String?
+  postalCode  String?
+  email       String?
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  equipments       Equipment[]
+  tickets          Ticket[]
+  incidentReports  IncidentReport[]
+  demandes         Demande[]
+  floorPlans       FloorPlan[]
+  // Managers responsables du site : ils valident les demandes rattachées à ce site.
+  managers         User[]           @relation("LocationManagers")
+}
+
+// Plan d'étage d'un centre (DWG converti en SVG, ou image/PDF uploadé). Support de la
+// visionneuse : on y pose des équipements via des coordonnées normalisées.
+model FloorPlan {
+  id            String   @id @default(cuid())
+  location      Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId    String
+  name          String   // ex. "RDC", "Étage 1"
+  order         Int      @default(0)
+  // Fichier source (DWG) conservé pour archive ; null si upload direct d'un SVG/image.
+  dwgStorageKey String?
+  // Rendu affiché par la visionneuse (SVG issu de la conversion, ou image/PDF uploadé).
+  svgStorageKey String
+  contentType   String   @default("image/svg+xml")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  placedEquipments Equipment[]
+
+  @@index([locationId, order])
+}
+
+model EquipmentCategory {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+
+  // Priorité appliquée par défaut aux tickets de cette catégorie (modifiable ensuite).
+  defaultPriority Priority @default(P2)
+  // Icône du marqueur sur les plans (ex. "gate", "camera") ; null = marqueur générique.
+  icon        String?
+  // Délai (en jours) pour obtenir un devis selon la priorité. null = "à définir".
+  p1DelayDays Int? @default(3)
+  p2DelayDays Int? @default(7)
+  p3DelayDays Int?
+  // SLA correctif : délai (en HEURES) pour résoudre un ticket correctif de ce type
+  // d'intervention (ex. désincarcération 1h, porte auto 4h, éclairage 72h). null = pas de SLA.
+  correctiveSlaHours Int?
+
+  equipments  Equipment[]
+  groupSubscriptions GroupCategorySubscription[]
+  userSubscriptions  UserCategorySubscription[]
+}
+
+model Equipment {
+  id          String       @id @default(cuid())
+  name        String
+  refCode     String       @unique
+  photoStorageKey  String?  // clé de stockage objet de la photo — cf. lib/storage.ts
+  photoContentType String?  // type MIME de la photo (pour la servir correctement)
+  category    EquipmentCategory @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  location    Location?    @relation(fields: [locationId], references: [id])
+  locationId  String?
+  team        Team         @relation(fields: [teamId], references: [id])
+  teamId      String
+  // Surcharges SLA/priorité au niveau de l'équipement : si défini, écrase la valeur de
+  // la catégorie ; null = hérite de la catégorie. (Un équipement critique peut donc
+  // avoir une priorité/un SLA propres, indépendants de sa catégorie.)
+  defaultPriority    Priority?
+  correctiveSlaHours Int?
+  p1DelayDays        Int?
+  p2DelayDays        Int?
+  p3DelayDays        Int?
+  // Placement sur un plan d'étage : plan + coordonnées normalisées (0→1).
+  floorPlan   FloorPlan?   @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
+  floorPlanId String?
+  planX       Float?
+  planY       Float?
+  // Icône du marqueur, définie depuis la visionneuse (gate/camera/door/elevator/generic).
+  // null = icône générique.
+  icon        String?
+  // Référentiel GMAO : identité, garantie, criticité, cycle de vie, fournisseur.
+  serialNumber    String?
+  brand           String?
+  model           String?
+  commissionedAt  DateTime?
+  warrantyUntil   DateTime?
+  criticality     Criticality              @default(MEDIUM)
+  lifecycleStatus EquipmentLifecycleStatus @default(IN_SERVICE)
+  supplier        Maintainer?              @relation("EquipmentSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  supplierId      String?
+  // Hiérarchie : équipement parent (système → sous-équipement/composant).
+  parent          Equipment?               @relation("EquipmentHierarchy", fields: [parentEquipmentId], references: [id], onDelete: SetNull)
+  parentEquipmentId String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tickets     Ticket[]
+  demandes    Demande[]
+  documents   EquipmentDocument[]
+  maintenancePlans MaintenancePlan[] @relation("EquipmentMaintenancePlans")
+  children    Equipment[]  @relation("EquipmentHierarchy")
+  meters      Meter[]
+
+  @@index([floorPlanId])
+  @@index([criticality])
+  @@index([lifecycleStatus])
+  @@index([supplierId])
+  @@index([parentEquipmentId])
+}
+
+// Document rattaché à un équipement (manuel, schéma, certificat…). Binaire hors base
+// (lib/storage), servi par une route authentifiée. `expiryAt` pour les certificats.
+model EquipmentDocument {
+  id           String                @id @default(cuid())
+  equipment    Equipment             @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId  String
+  storageKey   String
+  fileName     String
+  contentType  String
+  type         EquipmentDocumentType @default(OTHER)
+  label        String?
+  expiryAt     DateTime?
+  uploadedBy   User?                 @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedById String?
+  createdAt    DateTime              @default(now())
+
+  @@index([equipmentId])
+  @@index([expiryAt])
+}
+
+// Plan de maintenance préventive (calendaire) rattaché à un équipement. Génère
+// automatiquement un ordre de travail (Ticket nature PREVENTIVE) à chaque échéance.
+model MaintenancePlan {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  equipment       Equipment   @relation("EquipmentMaintenancePlans", fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId     String
+  trigger         MaintenancePlanTrigger @default(CALENDAR)
+  // Calendaire : périodicité en jours ; l'OT est généré leadTimeDays avant l'échéance.
+  intervalDays    Int?
+  leadTimeDays    Int         @default(0)
+  nextDueAt       DateTime?
+  // Compteur : génère quand (relevé courant − dernier relevé déclencheur) ≥ meterInterval.
+  meter           Meter?      @relation(fields: [meterId], references: [id], onDelete: SetNull)
+  meterId         String?
+  meterInterval   Float?
+  lastGeneratedMeterValue Float?
+  isRegulatory    Boolean     @default(false)
+  priority        Priority?
+  team            Team?       @relation("TeamMaintenancePlans", fields: [teamId], references: [id], onDelete: SetNull)
+  teamId          String?
+  maintainer      Maintainer? @relation("MaintainerMaintenancePlans", fields: [maintainerId], references: [id], onDelete: SetNull)
+  maintainerId    String?
+  active          Boolean     @default(true)
+  lastGeneratedAt DateTime?
+  createdBy       User        @relation("MaintenancePlanCreator", fields: [createdByUserId], references: [id])
+  createdByUserId String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  tasks   MaintenanceTask[]
+  tickets Ticket[]
+
+  @@index([active, nextDueAt])
+  @@index([equipmentId])
+  @@index([meterId])
+}
+
+// Tâche modèle d'un plan (gamme / check-list), copiée sur chaque OT généré.
+model MaintenanceTask {
+  id     String          @id @default(cuid())
+  plan   MaintenancePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId String
+  label  String
+  order  Int             @default(0)
+
+  @@index([planId])
+}
+
+// Tâche instanciée sur un OT (check-list cochable).
+model TicketTask {
+  id           String    @id @default(cuid())
+  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId     String
+  label        String
+  order        Int       @default(0)
+  done         Boolean   @default(false)
+  doneBy       User?     @relation("TicketTaskDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  doneByUserId String?
+  doneAt       DateTime?
+
+  @@index([ticketId])
+}
+
+// Temps passé (main d'œuvre) sur un OT. Valorisé via AppConfig.laborRateCents.
+model WorkLog {
+  id          String   @id @default(cuid())
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId    String
+  user        User     @relation("WorkLogUser", fields: [userId], references: [id])
+  userId      String
+  minutes     Int
+  performedAt DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([userId])
+}
+
+// Ligne de coût d'un OT (pièce, prestation externe, autre). Montant HT en centimes.
+model CostLine {
+  id          String       @id @default(cuid())
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId    String
+  type        CostLineType @default(OTHER)
+  label       String
+  amountCents Int
+  quantity    Int          @default(1)
+  createdBy   User?        @relation("CostLineCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  @@index([ticketId])
+}
+
+// Compétence / habilitation (ex. "Électrique", "Levage", "Portails automatiques").
+model Skill {
+  id    String      @id @default(cuid())
+  name  String      @unique
+  users UserSkill[]
+}
+
+// Affectation d'une compétence à un utilisateur (technicien interne).
+model UserSkill {
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skillId String
+
+  @@id([userId, skillId])
+  @@index([skillId])
+}
+
+// Pièce détachée / consommable (stock unique). Consommée sur les OT.
+model Part {
+  id             String   @id @default(cuid())
+  reference      String   @unique
+  name           String
+  unit           String?
+  unitPriceCents Int?
+  stockQty       Int      @default(0)
+  reorderPoint   Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  movements StockMovement[]
+
+  @@index([reference])
+}
+
+// Mouvement de stock (traçabilité). delta > 0 = entrée, delta < 0 = sortie.
+model StockMovement {
+  id        String              @id @default(cuid())
+  part      Part                @relation(fields: [partId], references: [id], onDelete: Cascade)
+  partId    String
+  delta     Int
+  reason    StockMovementReason
+  ticket    Ticket?             @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  ticketId  String?
+  by        User?               @relation("StockMovementBy", fields: [byUserId], references: [id], onDelete: SetNull)
+  byUserId  String?
+  note      String?
+  createdAt DateTime            @default(now())
+
+  @@index([partId, createdAt])
+  @@index([ticketId])
+}
+
+// Code de diagnostic (taxonomie panne / cause / remède) rattaché aux OT.
+model FailureCode {
+  id    String          @id @default(cuid())
+  type  FailureCodeType
+  label String
+
+  ticketsFailure Ticket[] @relation("TicketFailureCode")
+  ticketsCause   Ticket[] @relation("TicketCauseCode")
+  ticketsRemedy  Ticket[] @relation("TicketRemedyCode")
+
+  @@unique([type, label])
+}
+
+// Compteur d'un équipement (heures, cycles, km…). Supporte le préventif conditionnel.
+model Meter {
+  id          String    @id @default(cuid())
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId String
+  name        String
+  unit        String
+  createdAt   DateTime  @default(now())
+
+  readings MeterReading[]
+  plans    MaintenancePlan[]
+
+  @@index([equipmentId])
+}
+
+// Relevé d'un compteur à une date.
+model MeterReading {
+  id        String   @id @default(cuid())
+  meter     Meter    @relation(fields: [meterId], references: [id], onDelete: Cascade)
+  meterId   String
+  value     Float
+  readAt    DateTime @default(now())
+  by        User?    @relation("MeterReadingBy", fields: [byUserId], references: [id], onDelete: SetNull)
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  @@index([meterId, readAt])
+}
+
+model Group {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  members     GroupMember[]
+  teams       GroupTeam[]
+  categorySubscriptions GroupCategorySubscription[]
+}
+
+model GroupCategorySubscription {
+  id         String            @id @default(cuid())
+  group      Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId    String
+  category   EquipmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+  createdAt  DateTime          @default(now())
+
+  @@unique([groupId, categoryId])
+}
+
+model UserCategorySubscription {
+  id         String            @id @default(cuid())
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  category   EquipmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+  createdAt  DateTime          @default(now())
+
+  @@unique([userId, categoryId])
+}
+
+model GroupTeam {
+  id        String   @id @default(cuid())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, teamId])
+}
+
+model GroupMember {
+  id          String @id @default(cuid())
+  group       Group  @relation(fields: [groupId], references: [id])
+  groupId     String
+  user        User   @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model TicketStatus {
+  id        String   @id @default(cuid())
+  name      String
+  color     String?
+  order     Int      @default(0)
+  isFinal   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  team      Team?    @relation(fields: [teamId], references: [id])
+  teamId    String?
+
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id            String       @id @default(cuid())
+  ticketNumber  Int          @unique @default(autoincrement())
+  title         String
+  description   String
+  status        TicketStatus @relation(fields: [statusId], references: [id])
+  statusId      String
+  priority      Priority      @default(P2)
+  nature        TicketNature  @default(CORRECTIVE)
+  equipment     Equipment     @relation(fields: [equipmentId], references: [id])
+  equipmentId   String
+  requester     User          @relation("TicketRequester", fields: [requesterId], references: [id])
+  requesterId   String
+  team          Team          @relation(fields: [teamId], references: [id])
+  teamId        String
+  location      Location?     @relation(fields: [locationId], references: [id])
+  locationId    String?
+  isArchived    Boolean       @default(false)
+  openedAt      DateTime      @default(now())
+  closedAt      DateTime?
+  invoiceNumber String?
+  quoteNumber   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  dueDate       DateTime?
+  // Échéance de réception du devis, calculée depuis la priorité + le délai de la
+  // catégorie d'équipement. null quand le délai est "à définir" (P3 sans délai).
+  quoteDeadline DateTime?
+  // SLA de prise en charge (triage) : échéance = création + AppConfig.firstResponseHours.
+  // firstRespondedAt est horodaté au premier changement de statut (ticket qualifié).
+  firstResponseDueAt DateTime?
+  firstRespondedAt   DateTime?
+  // Fenêtre d'intervention planifiée (chantier), renseignée à la validation du devis.
+  interventionStartAt DateTime?
+  interventionEndAt   DateTime?
+
+  maintainer    Maintainer?   @relation(fields: [maintainerId], references: [id])
+  maintainerId  String?
+  // Technicien interne affecté à l'OT (distinct du prestataire externe).
+  assignee      User?         @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assigneeId    String?
+  // Diagnostic (codes panne / cause / remède), renseigné à la clôture.
+  failureCode   FailureCode?  @relation("TicketFailureCode", fields: [failureCodeId], references: [id], onDelete: SetNull)
+  failureCodeId String?
+  causeCode     FailureCode?  @relation("TicketCauseCode", fields: [causeCodeId], references: [id], onDelete: SetNull)
+  causeCodeId   String?
+  remedyCode    FailureCode?  @relation("TicketRemedyCode", fields: [remedyCodeId], references: [id], onDelete: SetNull)
+  remedyCodeId  String?
+
+  chatMessages  ChatMessage[]
+  attachments   Attachment[]  @relation("TicketAttachments")
+  subscriptions TicketSubscription[]
+  auditLogs     AuditLog[]
+  externalDispatches ExternalDispatch[]
+  priorityChanges PriorityChange[]
+  quotes          Quote[]
+  demande         Demande?      @relation("DemandeTicket")
+  // Préventif : OT issu d'un plan de maintenance + check-list instanciée.
+  maintenancePlan   MaintenancePlan? @relation(fields: [maintenancePlanId], references: [id], onDelete: SetNull)
+  maintenancePlanId String?
+  tasks             TicketTask[]
+  // Temps passé (main d'œuvre) + lignes de coût (pièces, externe…).
+  workLogs          WorkLog[]
+  costLines         CostLine[]
+  stockMovements    StockMovement[]
+
+  @@index([teamId, isArchived, statusId])
+  @@index([requesterId])
+  @@index([equipmentId])
+  @@index([locationId])
+  @@index([maintainerId])
+  @@index([statusId])
+  @@index([priority])
+  @@index([nature])
+  @@index([assigneeId])
+  @@index([failureCodeId])
+  @@index([dueDate])
+  @@index([quoteDeadline])
+  @@index([firstResponseDueAt])
+  @@index([maintenancePlanId])
+  @@index([createdAt])
+}
+
+// Historique des changements de priorité d'un ticket (traçabilité + KPI :
+// "les équipes fixent-elles/tiennent-elles correctement les priorités ?").
+model PriorityChange {
+  id           String    @id @default(cuid())
+  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId     String
+  changedBy    User      @relation(fields: [changedById], references: [id])
+  changedById  String
+  fromPriority Priority?
+  toPriority   Priority
+  reason       String?
+  createdAt    DateTime  @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([changedById])
+}
+
+// Tentatives de connexion échouées (anti-brute-force PERSISTANT : fiable au redémarrage
+// et partagé entre instances, contrairement à un compteur en mémoire). Une ligne = un échec.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  key       String   // identifiant de la tentative, ex. "ip:username"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@index([createdAt])
+}
+
+// Réglages globaux de l'outil, éditables au backoffice (ADMIN). Singleton : une seule
+// ligne (id = "singleton"). Regroupe les variables de process transverses.
+model AppConfig {
+  id String @id @default("singleton")
+  // SLA de prise en charge (triage) d'un nouveau ticket, en heures.
+  firstResponseHours Int @default(1)
+  // Taux horaire de main d'œuvre interne (centimes). null = non valorisée.
+  laborRateCents Int?
+
+  updatedAt DateTime @updatedAt
+}
+
+// Devis d'un prestataire pour un ticket. Cycle : demandé (au dispatch) -> reçu
+// (ingéré depuis l'app mainteneur externe) -> accepté/refusé (décision interne).
+model Quote {
+  id           String       @id @default(cuid())
+  ticket       Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId     String
+  maintainer   Maintainer?  @relation(fields: [maintainerId], references: [id], onDelete: SetNull)
+  maintainerId String?
+  dispatch     ExternalDispatch? @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  dispatchId   String?
+
+  status       QuoteStatus  @default(REQUESTED)
+  reference    String?      // numéro de devis fourni par le prestataire
+  amountCents  Int?         // montant HT en centimes (null tant que non reçu)
+  currency     String       @default("EUR")
+
+  // Idempotence de l'ingestion externe (anti-rejeu), comme externalMessageId côté feedback.
+  externalQuoteId String?   @unique
+  // Fichier PDF du devis, stocké hors base (lib/storage).
+  fileStorageKey String?
+  fileName       String?
+  contentType    String?
+
+  requestedAt  DateTime     @default(now())
+  receivedAt   DateTime?
+  validUntil   DateTime?
+  // Suivi des relances prestataire (anti-spam / cadence).
+  lastRemindedAt DateTime?
+  reminderCount  Int        @default(0)
+  decidedAt    DateTime?
+  decidedBy    User?        @relation("QuoteDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  decidedByUserId String?
+  notes        String?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([ticketId, createdAt])
+  @@index([status])
+}
+
+// Demande d'incident déposée par un utilisateur (BASIC+), validée ou rejetée par un
+// manager. Sa validation crée le ticket ; le rejet porte un motif.
+model Demande {
+  id            String        @id @default(cuid())
+  title         String
+  description   String
+  // Optionnels : une idée/suggestion ne cible pas forcément un équipement existant.
+  // Le manager choisit l'équipement (donc l'équipe) et la priorité à la validation.
+  equipment     Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  equipmentId   String?
+  location      Location?     @relation(fields: [locationId], references: [id])
+  locationId    String?
+  requester     User          @relation("DemandeRequester", fields: [requesterId], references: [id])
+  requesterId   String
+  status        DemandeStatus @default(PENDING)
+  // Priorité suggérée par le demandeur (optionnelle ; le manager tranche à la validation).
+  suggestedPriority Priority?
+
+  rejectionReason String?
+  decidedBy     User?         @relation("DemandeDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  decidedByUserId String?
+  decidedAt     DateTime?
+  ticket        Ticket?       @relation("DemandeTicket", fields: [ticketId], references: [id], onDelete: SetNull)
+  ticketId      String?       @unique
+
+  attachments   Attachment[]  @relation("DemandeAttachments")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([requesterId])
+  @@index([equipmentId])
+}
+
+model ChatMessage {
+  id          String     @id @default(cuid())
+  content     String
+  author      User       @relation(fields: [authorId], references: [id])
+  authorId    String
+  ticket      Ticket     @relation(fields: [ticketId], references: [id])
+  ticketId    String
+  createdAt   DateTime   @default(now())
+  attachments Attachment[] @relation("ChatMessageAttachments")
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+model Attachment {
+  id          String      @id @default(cuid())
+  type        AttachmentType
+  url         String
+  description String?
+  fileName    String?
+  contentType String?
+  storageKey  String?     // clé de stockage objet — cf. lib/storage.ts (les binaires ne sont plus en base)
+  uploadedBy  User        @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  ticket      Ticket?     @relation("TicketAttachments", fields: [ticketId], references: [id])
+  ticketId    String?
+  chatMessage ChatMessage? @relation("ChatMessageAttachments", fields: [chatMessageId], references: [id])
+  chatMessageId String?
+  demande     Demande?    @relation("DemandeAttachments", fields: [demandeId], references: [id])
+  demandeId   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([ticketId])
+  @@index([chatMessageId])
+  @@index([demandeId])
+  @@index([uploadedById])
+}
+
+model IncidentReport {
+  id                String    @id @default(cuid())
+  reportType        ReportType @default(INCIDENT)
+  dateTime          DateTime
+  subject           String?
+  description       String?
+  company           String?
+  interventionReason String?
+  requestedBy       String?
+  intervenedBy      String?
+  resolutionTime    String?
+  personsInvolved   String?
+  correctiveActions String?
+  notes             String?
+  location          Location? @relation(fields: [locationId], references: [id])
+  locationId        String?
+  createdBy         User      @relation(fields: [createdById], references: [id])
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model TicketSubscription {
+  id        String   @id @default(cuid())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([ticketId, userId])
+}
+
+model Maintainer {
+  id         String   @id @default(cuid())
+  name       String
+  email      String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     String?  @unique
+  contact    String?
+  // Fournisseur / prestataire : coordonnées & spécialités (Lot 8 GMAO).
+  phone       String?
+  specialties String?
+  notes       String?
+  tickets    Ticket[]
+  externalDispatches ExternalDispatch[]
+  quotes     Quote[]
+  equipmentsSupplied Equipment[] @relation("EquipmentSupplier")
+  maintenancePlans   MaintenancePlan[] @relation("MaintainerMaintenancePlans")
+  contracts  Contract[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Contrat de maintenance avec un prestataire (périmètre, SLA contractuels, coût).
+model Contract {
+  id           String     @id @default(cuid())
+  maintainer   Maintainer @relation(fields: [maintainerId], references: [id], onDelete: Cascade)
+  maintainerId String
+  name         String
+  scope        String?
+  slaTerms     String?
+  startAt      DateTime?
+  endAt        DateTime?
+  costCents    Int?
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([maintainerId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  dedupeKey String?          // clé de dé-duplication (ex. rappels d'échéance) — évite un LIKE sur le titre
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  @@index([userId, isRead, createdAt])
+  @@index([type, dedupeKey])
+}
+
+model NotificationEmailJob {
+  id        String          @id @default(cuid())
+  userId    String
+  type      NotificationType
+  toEmail   String
+  subject   String
+  text      String
+  html      String?
+  // IDs des pièces jointes (Attachment) à re-hydrater à l'envoi — permet aux emails
+  // avec PJ de passer par la file avec retry, au lieu d'un envoi synchrone sans reprise.
+  attachmentIds Json?
+  status    EmailJobStatus  @default(PENDING)
+  attempts  Int             @default(0)
+  lastError String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  sentAt    DateTime?
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String
+  entityId  String
+  action    String
+  changes   Json?
+  actorId   String
+  ticketId  String?
+  createdAt DateTime @default(now())
+
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([ticketId, createdAt])
+}
+
+model ExternalDispatch {
+  id                String                @id @default(cuid())
+  ticketId           String
+  maintainerId       String
+  phoneSnapshot      String?
+  externalTicketId   String?
+  status             ExternalDispatchStatus @default(PENDING)
+  lastError          String?
+  dispatchedByUserId String
+  dispatchedAt       DateTime
+  ackedAt            DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  ticket             Ticket                @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  maintainer         Maintainer            @relation(fields: [maintainerId], references: [id], onDelete: Cascade)
+  dispatchedBy       User                  @relation(fields: [dispatchedByUserId], references: [id], onDelete: Cascade)
+  feedbackEvents     ExternalFeedbackEvent[]
+  quotes             Quote[]
+
+  @@index([ticketId, createdAt])
+  @@index([maintainerId, createdAt])
+  @@unique([externalTicketId])
+}
+
+model ExternalFeedbackEvent {
+  id              String                         @id @default(cuid())
+  dispatchId      String
+  externalMessageId String                       @unique
+  payloadJson     Json
+  ingestionStatus ExternalFeedbackIngestionStatus @default(RECEIVED)
+  processedAt     DateTime?
+  errorMessage    String?
+  createdAt       DateTime                       @default(now())
+
+  dispatch        ExternalDispatch               @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  @@index([dispatchId, createdAt])
+  @@index([ingestionStatus, createdAt])
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=__APP_SERVICE__ — rappels d'échéance (chaque jour à 08h00)
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+Unit=__APP_SERVICE__-notif-due.service
+
+[Install]
+WantedBy=timers.target

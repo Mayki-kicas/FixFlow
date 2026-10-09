@@ -1,0 +1,333 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Atelier — charte « fiche de maintenance / établi industriel » ===========
+   Neutres chauds (papier / graphite), signalétique d'atelier (corail incident,
+   ambre en cours, vert sapin résolu), typographie Space Grotesk + IBM Plex Mono.
+   Les hairlines et la donnée mono portent l'identité, pas les ombres. */
+:root {
+  --background: #f3efe6;
+  --foreground: #1b1714;
+  --surface: #fbf8f2;
+  --surface-alt: #eae3d5;
+  --border-default: rgba(27, 23, 20, 0.14);
+  --border-strong: rgba(27, 23, 20, 0.28);
+  --muted: #6e655a;
+  --primary: #1b1714;
+  --primary-hover: #0f0c0a;
+  --accent: #e8513b;
+  --accent-2: #2f6f9e;
+  --signal-progress: #c97e1a;
+  --signal-done: #2f7d5b;
+  --font-sans: "Inter", "SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.dark {
+  --background: #12161c;
+  --foreground: #ece7dd;
+  --surface: #1a1f27;
+  --surface-alt: #232a34;
+  --border-default: rgba(190, 178, 160, 0.18);
+  --border-strong: rgba(190, 178, 160, 0.34);
+  --muted: #a49b8d;
+  --primary: #ece7dd;
+  --primary-hover: #f6f1e8;
+  --accent: #ff6f57;
+  --accent-2: #6fa7d8;
+  --signal-progress: #e0982e;
+  --signal-done: #46a67e;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  position: relative;
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(180deg, #f5f1e8 0%, #efe9dc 55%, #e7dece 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: 50% 50%;
+  background-attachment: fixed;
+  animation: none;
+}
+
+.no-motion body {
+  animation: none;
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.dark body {
+  background-image:
+    linear-gradient(180deg, #12161c 0%, #151b23 55%, #0f141b 100%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    animation: none;
+  }
+
+  body::before {
+    animation: none;
+  }
+
+  body::after {
+    animation: none;
+  }
+}
+
+body::before,
+body::after {
+  content: none;
+}
+
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-12px) translateX(8px);
+  }
+}
+
+@keyframes shimmer-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+
+@keyframes gentle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(79, 70, 229, 0);
+  }
+}
+
+@keyframes background-spin {
+  0% {
+    transform: rotate(0deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.05);
+  }
+}
+
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up 220ms ease-out both;
+  }
+
+  .animate-gentle-pulse {
+    animation: gentle-pulse 1.4s ease-in-out infinite;
+  }
+
+  .animate-float-slow {
+    animation: float-slow 12s ease-in-out infinite;
+  }
+
+  .bg-expressive {
+    background-image:
+      radial-gradient(circle at 50% -20%, rgba(255, 178, 142, 0.35), transparent 55%),
+      radial-gradient(circle at 50% 10%, rgba(90, 139, 255, 0.18), transparent 55%),
+      linear-gradient(140deg, rgba(246, 245, 242, 0.96), rgba(235, 231, 223, 0.96));
+    background-size: 140% 140%;
+    animation: shimmer-pan 22s ease-in-out infinite alternate;
+  }
+}
+
+@layer components {
+  .page-toolbar {
+    @apply bg-white/90 dark:bg-[#121821]/90 border-b border-border-default sticky top-0 z-10 backdrop-blur;
+  }
+
+  .page-toolbar-inner {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .page-toolbar-row {
+    @apply py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3;
+  }
+
+  .page-toolbar-title {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  .page-toolbar-subtitle {
+    @apply text-xs text-muted;
+  }
+
+  .page-header {
+    @apply mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-default bg-white/75 dark:bg-[#121821]/70 px-3 py-2 backdrop-blur-md;
+  }
+
+  .page-title {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-xs text-muted;
+  }
+
+  .section-band {
+    @apply mb-3 flex items-center justify-between rounded-lg border border-border-default bg-surface-alt px-2.5 py-1.5;
+  }
+
+  .section-band-title {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-muted;
+  }
+
+  /* --- Data-Dense : hiérarchie label / valeur réutilisable --------------- */
+
+  /* Carte de contenu standard. */
+  .card {
+    @apply rounded-xl border border-border-default bg-surface shadow-soft-md;
+  }
+
+  /* En-tête interne d'une carte : titre de section fort + trait de séparation. */
+  .card-head {
+    @apply flex items-center justify-between gap-2 border-b border-border-default px-3 py-2;
+  }
+
+  .card-head-title {
+    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-foreground;
+  }
+
+  /* Label de champ : secondaire, discret, NON en majuscules (se distingue des
+     titres de section qui, eux, sont en majuscules). */
+  .field-label {
+    @apply block text-[11px] font-medium text-muted;
+  }
+
+  /* Valeur : primaire, forte, chiffres tabulaires en mono (donnée technique). */
+  .field-value {
+    @apply font-mono text-sm font-medium text-foreground tabular-nums;
+  }
+
+  /* Ligne label ↔ valeur sur une seule ligne (label à gauche, valeur à droite). */
+  .data-row {
+    @apply flex items-center justify-between gap-3 py-1.5;
+  }
+
+  .data-row + .data-row {
+    @apply border-t border-border-default;
+  }
+
+  /* Tuile KPI compacte. */
+  .stat-tile {
+    @apply rounded-xl border border-border-default bg-surface-alt px-3 py-2;
+  }
+
+  .stat-label {
+    @apply text-[10px] font-semibold uppercase tracking-wide text-muted;
+  }
+
+  .stat-value {
+    @apply font-mono text-lg font-semibold text-foreground tabular-nums;
+  }
+
+  /* --- Badges signalétiques (mono, texte coloré + fond 12 %, jamais plein) -- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded font-mono px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em];
+  }
+
+  .badge-neutral {
+    @apply border border-border-default bg-surface-alt text-muted;
+  }
+
+  .badge-danger {
+    @apply bg-[#dc2626]/10 text-[#b3261a] dark:text-[#ff8a74];
+  }
+
+  .badge-warn {
+    @apply bg-[#c97e1a]/10 text-[#945a10] dark:text-[#e0982e];
+  }
+
+  .badge-success {
+    @apply bg-[#2f7d5b]/10 text-[#276848] dark:text-[#4fb288];
+  }
+
+  .badge-info {
+    @apply bg-[#2f6f9e]/10 text-[#285d85] dark:text-[#7cb0dd];
+  }
+
+  /* Étiquette « ruban » : tag mono adhésif avec amorce d'accent à gauche.
+     Pour marquer réf. équipement, site, code — signature de l'Atelier. */
+  .tag-ribbon {
+    @apply inline-flex items-center gap-1 border-l-2 border-[color:var(--accent)] bg-surface-alt px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-foreground;
+  }
+
+  /* Filet de grille atelier : trame de points discrète pour zones vides. */
+  .bg-dotgrid {
+    background-image: radial-gradient(var(--border-default) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.005em;
+  }
+
+  /* Titres en Space Grotesk — caractère mécanique, légèrement serré. */
+  h1, h2, h3, h4 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: rgba(232, 81, 59, 0.28);
+    color: var(--foreground);
+  }
+
+  input,
+  textarea,
+  select {
+    @apply text-sm text-foreground bg-surface border-border-default;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+  }
+}

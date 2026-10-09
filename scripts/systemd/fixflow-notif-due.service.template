@@ -1,0 +1,13 @@
+[Unit]
+Description=__APP_SERVICE__ — rappels d'échéance des tickets
+After=network.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__DEPLOY_PATH__/current
+EnvironmentFile=__DEPLOY_PATH__/shared/.env
+# Appelle l'endpoint interne du serveur qui tourne déjà (auth: INTERNAL_CRON_TOKEN).
+ExecStart=/usr/bin/env bash -c 'curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $INTERNAL_CRON_TOKEN" http://127.0.0.1:__APP_PORT__/api/notifications/due/dispatch'
+StandardOutput=journal
+StandardError=journal

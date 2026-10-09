@@ -1,0 +1,49 @@
+{
+  "name": "fixflow-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:watch": "node --import tsx --test --watch \"tests/**/*.test.ts\"",
+    "test:ci": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "smoke": "node tests/smoke/routes.mjs",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "notifications:process-queue": "tsx scripts/process-notification-queue.ts",
+    "notifications:dispatch-due": "tsx scripts/dispatch-due-date-reminders.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "jspdf": "^4.1.0",
+    "ldapts": "^7.1.0",
+    "next": "^15.1.6",
+    "next-auth": "^4.24.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "^15.1.6",
+    "postcss": "^8",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

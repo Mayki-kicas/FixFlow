@@ -1,0 +1,12 @@
+[Unit]
+Description=__APP_SERVICE__ — file d'emails de notification (toutes les 5 min)
+
+[Timer]
+# Démarre peu après le boot, puis toutes les 5 minutes.
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=__APP_SERVICE__-notif-queue.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

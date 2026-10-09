@@ -1,0 +1,10 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReportType') THEN
+    CREATE TYPE "ReportType" AS ENUM ('INCIDENT', 'INTERVENTION');
+  END IF;
+END
+$$;
+
+ALTER TABLE "IncidentReport"
+  ADD COLUMN IF NOT EXISTS "reportType" "ReportType" NOT NULL DEFAULT 'INCIDENT';
