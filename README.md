@@ -1,186 +1,201 @@
-# FixFlow - Maintenance Tickets
+# FixFlow — Open-Source CMMS & Maintenance Ticketing Platform
 
-## Aperçu
-Plateforme interne de gestion de maintenance : déclaration d'incidents, workflow tickets par équipe, chat + pièces jointes, analytique/exports manuels et backoffice de localisations/équipements. La stack se base sur Next.js pour le front/API, PostgreSQL+Prisma pour les données et Docker pour les environnements.
+> Self-hosted **CMMS (GMAO)** and **maintenance ticketing** software to declare incidents, auto-route work orders, run preventive maintenance, and track equipment, spare parts, costs and reliability — built with Next.js, Prisma and PostgreSQL.
 
-## Mises a jour recentes (2026-02-19)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![React](https://img.shields.io/badge/React-19-149eca)
+![Prisma](https://img.shields.io/badge/Prisma-ORM-2d3748)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
 
-- La page "Dashboard manager" a ete retiree.
-- La page `Statistiques` a ete renommee `Analytique` : `/backoffice/analytique`.
-- Filtres analytique consolides dans un bloc unique :
-  - periode rapide
-  - plage de dates custom
-  - filtrage multi-localisations
-- Ajout de nouvelles visualisations analytiques :
-  - backlog ouvert dans le temps
-  - top equipements en evolution (sparkbars)
-  - top localisations en evolution (sparkbars)
-- Photo d'equipement :
-  - champ `photoBase64` sur les equipements
-  - miniature dans l'entete ticket
-  - previsualisation en popin (fermeture croix ou clic exterieur)
-- Script de generation de donnees pour l'analytique :
-  - `docker compose exec app npx tsx scripts/generate-tickets.ts`
-  - regenere un volume important de tickets sur les 90 derniers jours (configurable via `COUNT` et `DAYS`).
-- Mainteneurs (hors LDAP) :
-  - role `MAINTAINER` unifie partout (code + base + docs)
-  - authentification locale mainteneur (email + mot de passe hash)
-  - creation/edition des comptes mainteneur par `ADMIN`/`MANAGER` depuis le backoffice
-- Visibilite et permissions tickets :
-  - `BASIC` et `MAINTAINER` ne voient que les equipes/tickets accessibles par abonnements
-  - en kanban, un mainteneur ne peut pas changer l'etat (message permission explicite)
-  - en detail ticket, un mainteneur ne peut pas se desabonner lui-meme (badge "Abonne")
+**FixFlow is a free, open-source CMMS (Computerized Maintenance Management System — *GMAO* in French) and maintenance ticketing platform.** Teams declare incidents, work orders are auto-assigned to the owning team, and the tool covers the full maintenance lifecycle: corrective and preventive maintenance, an equipment registry, spare-parts inventory, time and cost tracking, reliability KPIs (MTBF/MTTR), and configurable authentication (LDAP or Microsoft Entra ID) and email — all self-hosted.
 
-## Démarrage rapide
+- **Category:** CMMS / GMAO + maintenance ticketing / work-order management
+- **Deployment:** self-hosted (Docker in dev, Node.js standalone in production)
+- **Stack:** Next.js 15 (App Router) · React 19 · Prisma · PostgreSQL · NextAuth
+- **Status:** actively developed · 10 GMAO modules delivered
 
-Résumé :
+---
+
+## Table of contents
+
+- [What is FixFlow?](#what-is-fixflow)
+- [Key capabilities](#key-capabilities)
+  - [Maintenance ticketing & work orders](#-maintenance-ticketing--work-orders)
+  - [GMAO / CMMS — asset & maintenance management](#-gmao--cmms--asset--maintenance-management)
+  - [Analytics & reliability](#-analytics--reliability)
+  - [Configuration & administration](#️-configuration--administration)
+- [Who is it for?](#who-is-it-for)
+- [Roles & access control](#roles--access-control)
+- [Tech stack](#tech-stack)
+- [Quick start](#quick-start-docker)
+- [Configuration](#configuration)
+- [Deployment, backups & hardening](#deployment-backups--hardening)
+- [Documentation](#documentation)
+- [FAQ](#faq)
+- [License](#license)
+
+---
+
+## What is FixFlow?
+
+FixFlow is maintenance management software that combines a **ticketing / help-desk workflow** with a full **CMMS (GMAO)**. A requester declares an incident on a piece of equipment; FixFlow generates a structured report, creates a work order (ticket), and auto-assigns it to the team that owns the equipment. From there, technicians handle corrective work, managers schedule preventive maintenance, and administrators track parts, costs, suppliers and reliability.
+
+It is designed for organizations that outgrew spreadsheets and email threads but don't want a heavy, expensive SaaS: **FixFlow is self-hosted, data stays in your PostgreSQL database, and everything is configurable from the admin backoffice.**
+
+> **GMAO vs CMMS:** *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is both — a bilingual, open-source GMAO/CMMS.
+
+---
+
+## Key capabilities
+
+### 🎫 Maintenance ticketing & work orders
+
+- **Incident declaration** with an auto-generated report, attached to a specific piece of equipment.
+- **Automatic routing** — each ticket is assigned to the team that owns the equipment.
+- **Kanban board** with drag-and-drop status changes; **statuses are customizable per team** (order + final states).
+- **Priority & SLA** — P1/P2/P3 priorities, first-response and resolution deadlines, corrective vs. improvement vs. preventive nature.
+- **Quotes & billing** — request/track external quotes (devis), quote/invoice numbers, SLA on quote reception.
+- **Threaded chat** on every ticket with **photo/PDF attachments**.
+- **Visibility control** — subscriptions, user groups, and role-based access so each user only sees what they should.
+- **Requests workflow (demandes)** — validation of access/declaration requests by site managers.
+- **Notifications** — in-app bell + email, due-date reminders, and admin alerts for access requests.
+
+### 🏭 GMAO / CMMS — asset & maintenance management
+
+Ten delivered modules cover the full maintenance scope:
+
+| Module | What it does |
+|--------|--------------|
+| **Equipment registry** | Assets with unique reference codes, categories, locations, photos, documents, and **QR codes**. |
+| **Preventive & regulatory maintenance** | Recurring maintenance plans, schedules, regulatory controls, and certificate expiry tracking. |
+| **Spare parts & stock** | Parts catalog, stock levels, reorder points, stock movements, and **low-stock alerts**. |
+| **Time & costs** | Work logs, labor rate, cost lines, and per–work-order cost computation. |
+| **Reliability KPIs** | **MTBF**, **MTTR**, availability, and preventive-maintenance compliance. |
+| **Technicians & skills** | Internal technicians, skills/certifications, and work-order assignment. |
+| **Planning** | Dispatch board to schedule interventions across technicians. |
+| **Hierarchy & meters** | Equipment hierarchy, meter readings, and meter-based maintenance triggers. |
+| **Suppliers & contracts** | External maintainers/contractors and maintenance contracts. |
+| **Mobile, QR & signature** | Installable **PWA**, QR-code scanning, and on-site intervention signature capture. |
+| **Floor plans** | Upload floor plans (incl. a **DWG/DXF converter**), place equipment, and open its kanban from the map. |
+
+### 📊 Analytics & reliability
+
+- Operational dashboards: ticket volume, resolution rate, average resolution time, open-backlog over time.
+- Reliability dashboard: **MTBF / MTTR / availability / preventive compliance** per equipment and team.
+- Breakdown by **site, team, equipment, status and priority**; quote-SLA and priority-change metrics.
+- Manual **CSV / PDF exports**.
+
+### ⚙️ Configuration & administration
+
+Everything below is configured from the **admin backoffice** — no redeploy needed for most changes:
+
+- **Authentication, your choice of SSO** — **LDAP / Active Directory** or **Microsoft Entra ID (Azure AD)**, switchable from the UI. A local admin account is always available as a break-glass login.
+- **Role management in the UI** — roles (ADMIN / MANAGER / MAINTAINER / BASIC) are assigned in the backoffice, not derived from AD groups. New SSO users land in a **pending-access** state until an admin grants access.
+- **Email (SMTP) configuration** — host, port, security (**STARTTLS / SSL / none**), authentication, and sender — with a **"send test email"** button. Password stays in environment variables.
+- **Teams, statuses & SLA**, **locations (sites)**, **equipment categories & access rights**, **user groups**, and global SLA/labor-rate settings.
+- **Security built in** — CSP headers, HSTS in production, login throttling, strict per-ticket access control, and attachment validation (MIME, size, count).
+
+---
+
+## Who is it for?
+
+FixFlow fits any team that maintains physical assets and wants a self-hosted, configurable CMMS/GMAO instead of paper, spreadsheets, or a per-seat SaaS:
+
+- **Facilities & building management** — HVAC, elevators, access control, multi-site portfolios.
+- **Manufacturing & industrial maintenance** — machines, preventive plans, spare parts, MTBF/MTTR.
+- **Property & real-estate management** — incidents per site, external contractors, quotes.
+- **IT & equipment fleets** — asset registry, QR tagging, corrective tickets.
+- **Internal maintenance / technical services** — a shared ticketing + work-order backbone for a whole organization.
+
+---
+
+## Roles & access control
+
+| Role | Can do |
+|------|--------|
+| **ADMIN** | Full backoffice: statuses, roles & access, auth/email configuration, exports. |
+| **MANAGER** | Backoffice (sites, equipment, groups), request validation, exports; sees everything. |
+| **MAINTAINER** | Technician: handles the work orders they're subscribed to (chat, attachments). |
+| **BASIC** | Declares incidents; sees only their subscriptions / group-accessible teams. |
+
+Access is managed in the UI; new SSO users require admin approval before they can enter.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS |
+| Backend | Next.js Server Actions + Route Handlers |
+| Database | PostgreSQL 15 + Prisma ORM |
+| Auth | NextAuth.js — LDAP / Microsoft Entra ID + local accounts |
+| Dev environment | Docker Compose (app, PostgreSQL, Adminer, Mailpit) |
+| Production | Node.js standalone (no Docker required) |
+
+---
+
+## Quick start (Docker)
 
 ```bash
-# 1. Configurer l'environnement
+# 1. Configure the environment
 cp .env.example .env
-# Éditer .env avec vos paramètres LDAP
+# Edit .env (database, NEXTAUTH_SECRET, BOOTSTRAP_ADMIN_PASSWORD, SSO/SMTP as needed)
 
-# 2. Démarrer les services Docker
+# 2. Start the services (app, PostgreSQL, Adminer, Mailpit)
 docker compose up --build -d
 
-# (Optionnel) Rebuild toolchain app si besoin
-docker compose build --no-cache app
-docker compose up -d --force-recreate app
-
-# 3. Initialiser la base de données
+# 3. Initialize the database
 docker compose exec app npm run prisma:generate
 docker compose exec app npm run prisma:migrate
 docker compose exec app npm run prisma:seed
 
-# 4. Accéder à l'application
-# http://localhost:3000 - Application Next.js
-# http://localhost:8080 - Adminer (base de données)
-# http://localhost:8025 - Mailpit (emails de dev)
+# 4. Open the app
+# http://localhost:3000  — FixFlow
+# http://localhost:8080  — Adminer (database UI)
+# http://localhost:8025  — Mailpit (dev email inbox)
 ```
 
-## Toolchain dev (dans Docker)
+The seed creates a single local **admin** account (`admin@example.com`, password from `BOOTSTRAP_ADMIN_PASSWORD`) plus demo sites and a sample work order. Sign in, then configure SSO, email and roles from the backoffice.
 
-Le conteneur `app` embarque la toolchain complète pour le dev:
-- `next`, `react`, `typescript`
-- `prisma` + client Prisma
-- `tsx` (seed TypeScript)
-- `eslint`
-- variables LDAP/NextAuth depuis `.env`
-- polling activé (`WATCHPACK_POLLING`, `CHOKIDAR_USEPOLLING`) pour le hot-reload Docker
-- bootstrap au démarrage: `npm ci` si besoin + `prisma generate` automatique
+---
 
-Vérification rapide:
+## Configuration
 
-```bash
-docker compose exec app npx next -v
-docker compose exec app npx prisma -v
-docker compose exec app npx tsx --version
-docker compose exec app npm run lint
-```
+Most configuration lives in the **backoffice** (auth, email, teams, statuses, SLA, locations, categories, groups). Secrets and infrastructure settings live in `.env`:
 
-## Structure du dépôt
-- `app/` : Application Next.js (front + API)
-- `docker-compose.yml` : Services Docker (PostgreSQL, Adminer, Next.js)
-- `app/prisma/` : Schéma Prisma, migrations et seed
-- `.env.example` : Variables d'environnement à configurer
-- `docs/` : Documentation technique
-- `CLAUDE.md` : Guide pour Claude Code
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | Session signing + base URL |
+| `BOOTSTRAP_ADMIN_EMAILS` | Emails auto-promoted to ADMIN on first SSO login |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Seeded local admin password (break-glass) |
+| `LDAP_BIND_PASSWORD` | LDAP service-account secret (non-secret LDAP settings are in the UI) |
+| `ENTRA_CLIENT_SECRET` | Microsoft Entra client secret (tenant/client IDs are in the UI) |
+| `SMTP_PASSWORD` | SMTP password (host/port/from/security are in the UI) |
 
-## Liens importants
-- `docs/AUTHENTICATION.md` : **guide auth** — SSO LDAP/Microsoft, rôles, amorçage, dépannage.  
-- `docs/DATA_MODEL.md` : modèle Prisma expliqué + prototype JSON + instructions seed/env.  
-- `docs/DB_SCHEMA.md` : référence du schéma de base de données.  
-- `docs/PWA_TECHNICIEN_SECURITY.md` : modèle de sécurité de la PWA mainteneur externe.  
-- `docker-compose.yml` : démarrage PG + Adminer, utilisé avant de lancer le serveur Next.js.  
+See **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)** for the full SSO, roles and troubleshooting guide.
 
-## Emails en local (Mailpit)
+---
 
-Les notifications email sont envoyées en SMTP vers Mailpit en développement.
+## Deployment, backups & hardening
 
-- SMTP : `localhost:1025`
-- Interface web : `http://localhost:8025`
-
-Variables `.env` utilisées :
-
-```env
-EMAIL_NOTIFICATIONS_ENABLED=true
-SMTP_HOST=mailpit
-SMTP_PORT=1025
-SMTP_SECURE=false
-SMTP_FROM=FixFlow <noreply@fixflow.local>
-SMTP_TIMEOUT_MS=10000
-```
-
-## Sauvegarde base de donnees
-
-Scripts disponibles a la racine du projet:
-
-```bash
-# Creer un backup horodate (format pg_dump custom)
-npm run db:backup
-
-# Lister les backups
-npm run db:backup:list
-
-# Restaurer un backup (arrete/redemarre le container app automatiquement)
-npm run db:restore -- ./backups/db/fixflow_maintenance_YYYYMMDD_HHMMSS.dump
-```
-
-Les backups sont stockes dans `backups/db/` avec un checksum `*.sha256`.
-
-## Deploiement distant (sans Docker)
-
-Script disponible :
+**Production deployment (no Docker)** — the included script syncs `app/`, builds, runs `prisma migrate deploy`, prepares the Next.js standalone runtime, restarts the systemd service, and runs a security preflight:
 
 ```bash
 sh scripts/deploy-remote.sh --help
 ```
 
-Premiere installation (installe/active le service systemd) :
+**Backups** — timestamped `pg_dump` with checksums:
 
 ```bash
-DEPLOY_HOST=your-server.example.com \
-DEPLOY_USER=deploy \
-DEPLOY_PATH=/opt/fixflow \
-APP_SERVICE=fixflow \
-APP_PORT=3000 \
-sh scripts/deploy-remote.sh --first-deploy --upload-env .env
+npm run db:backup          # create a backup
+npm run db:backup:list     # list backups
+npm run db:restore -- ./backups/db/<file>.dump
 ```
 
-Mise a jour applicative :
-
-```bash
-DEPLOY_HOST=your-server.example.com \
-DEPLOY_USER=deploy \
-DEPLOY_PATH=/opt/fixflow \
-APP_SERVICE=fixflow \
-APP_PORT=3000 \
-sh scripts/deploy-remote.sh
-```
-
-Le script :
-- synchronise `app/` sur le serveur
-- build en production sur le serveur
-- applique `prisma migrate deploy`
-- prepare le runtime Next.js standalone
-- restart le service systemd
-- effectue un preflight securite avant release:
-  - bloque si `DEV_AUTH_BYPASS=true`
-  - bloque si `FORCE_HTTPS=true` mais `NEXTAUTH_URL` n'est pas en `https://`
-  - bloque si `ALLOWED_HOSTS` est renseigne mais n'inclut pas l'host de `NEXTAUTH_URL`
-
-## Stack technique
-
-- **Frontend** : Next.js 15 (App Router) + React 19 + Tailwind CSS
-- **Backend** : Next.js Server Actions + API Routes
-- **Base de données** : PostgreSQL 15 + Prisma ORM
-- **Authentification** : NextAuth.js + LDAP (internes) + comptes locaux mainteneurs (hors LDAP)
-- **Dev** : Docker Compose
-- **Prod** : Node.js standalone (sans Docker)
-
-## Durcissement WAN (recommande)
-
-Pour une exposition internet, active au minimum:
+**WAN hardening (recommended for internet exposure):**
 
 ```env
 DEV_AUTH_BYPASS=false
@@ -188,19 +203,58 @@ NEXT_PUBLIC_DEV_AUTH_BYPASS=false
 ALLOWED_HOSTS=fixflow.example.com
 FORCE_HTTPS=true
 NEXTAUTH_URL=https://fixflow.example.com
-NEXTAUTH_SECRET=<secret-long-et-aleatoire>
-LDAP_TLS_REJECT_UNAUTHORIZED=true
+NEXTAUTH_SECRET=<long-random-secret>
 ```
 
-Le projet applique deja:
-- headers HTTP de securite (CSP, HSTS en prod, no-sniff, frame deny),
-- limitation de tentatives login (fenetre + plafond),
-- controle strict d'acces ticket pour profils restreints,
-- validation des pieces jointes (MIME, taille, nombre).
+Already applied by the project: security headers (CSP, HSTS in prod, no-sniff, frame-deny), login throttling, strict ticket access control, and attachment validation.
 
-## Prochaines étapes de développement
+---
 
-1. Affiner les dashboards analytiques (comparatifs, baseline, drill-down)
-2. Renforcer les preferences de notifications email (par type utilisateur)
-3. Completer les features avancees (mentions, recherche full-text, historique detaille)
-4. Finaliser les sujets qualite/deploiement (hardening, observabilite, runbook)
+## Documentation
+
+| Doc | Content |
+|-----|---------|
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | SSO (LDAP / Microsoft Entra), roles, bootstrap, troubleshooting |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Prisma data model + setup |
+| [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md) | Database schema reference |
+| [docs/PWA_TECHNICIEN_SECURITY.md](docs/PWA_TECHNICIEN_SECURITY.md) | External maintainer PWA security model |
+
+---
+
+## FAQ
+
+### What is FixFlow?
+FixFlow is an open-source **CMMS (GMAO)** and maintenance ticketing platform. It manages incident tickets, work orders, equipment, preventive maintenance, spare parts, costs and reliability KPIs, and is self-hosted on Next.js, Prisma and PostgreSQL.
+
+### What's the difference between a CMMS and a GMAO?
+None — *GMAO* (Gestion de Maintenance Assistée par Ordinateur) is simply the French term for a *CMMS* (Computerized Maintenance Management System). FixFlow is a bilingual GMAO/CMMS.
+
+### Is FixFlow free and open-source?
+Yes. FixFlow is open-source and self-hosted — you run it on your own infrastructure and your data stays in your PostgreSQL database.
+
+### Can FixFlow be self-hosted?
+Yes. Docker Compose is provided for development, and a production deployment script builds a Node.js standalone runtime and manages a systemd service — no Docker required in production.
+
+### Does FixFlow support SSO (LDAP or Microsoft Entra / Azure AD)?
+Yes. You choose the active SSO method — **LDAP / Active Directory** or **Microsoft Entra ID (Azure AD)** — from the admin backoffice. A local admin account is always available, and roles are managed in the UI.
+
+### Does FixFlow handle preventive maintenance?
+Yes. It supports recurring preventive and regulatory maintenance plans, schedules, certificate-expiry tracking, and meter-based maintenance triggers, in addition to corrective (incident) tickets.
+
+### Does FixFlow manage spare-parts inventory?
+Yes. There is a parts catalog with stock levels, reorder points, stock movements, and automatic low-stock alerts, plus parts consumption on work orders.
+
+### What reliability metrics does FixFlow compute?
+It computes **MTBF** (mean time between failures), **MTTR** (mean time to repair), availability, and preventive-maintenance compliance, per equipment and per team.
+
+### Does it work on mobile with QR codes?
+Yes. FixFlow ships an installable PWA, QR-code scanning to jump to an asset, and on-site intervention signature capture.
+
+### What tech stack does FixFlow use?
+Next.js 15 (App Router) and React 19 on the front/API, Prisma ORM with PostgreSQL 15 for data, NextAuth for authentication, and Docker Compose for the dev environment.
+
+---
+
+## License
+
+FixFlow is intended to be self-hosted and used freely. Add a `LICENSE` file (for example the **MIT License**) to formalize its open-source terms.
