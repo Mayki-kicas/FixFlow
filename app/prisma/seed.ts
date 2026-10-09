@@ -218,12 +218,16 @@ async function main() {
   console.log(`${IT_EQUIPMENTS.length} equipements Informatique globaux crees`);
   console.log(`${MAINTENANCE_EQUIPMENTS.length} equipements Maintenance globaux crees`);
 
+  // Admin LOCAL (break-glass) : email + mot de passe, toujours utilisable même
+  // sans SSO. Change le mot de passe via BOOTSTRAP_ADMIN_PASSWORD (ou en UI).
   const admin = await prisma.user.create({
     data: {
-      ldapId: 'uid=admin,ou=infra,dc=example,dc=local',
       email: 'admin@example.com',
       displayName: 'Admin User',
       role: 'ADMIN',
+      authProvider: 'LOCAL',
+      isActive: true,
+      passwordHash: await hashPassword(process.env.BOOTSTRAP_ADMIN_PASSWORD || 'ChangeMe-admin-123'),
     },
   });
 
@@ -233,16 +237,19 @@ async function main() {
       email: 'manager@example.com',
       displayName: 'manager',
       role: 'MANAGER',
+      authProvider: 'LDAP',
+      isActive: true,
     },
   });
 
   const maintainerUser = await prisma.user.create({
     data: {
-      ldapId: 'local:seed-maintainer',
       email: 'maintainer@example.com',
       passwordHash: await hashPassword('maintainer123'),
       displayName: 'maintainer',
       role: 'MAINTAINER',
+      authProvider: 'LOCAL',
+      isActive: true,
     },
   });
 
@@ -252,6 +259,8 @@ async function main() {
       email: 'basic@example.com',
       displayName: 'basic Basic',
       role: 'BASIC',
+      authProvider: 'LDAP',
+      isActive: true,
     },
   });
 
